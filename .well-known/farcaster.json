@@ -1,0 +1,20 @@
+{
+  "accountAssociation": {
+    "header": "BASE64_HEADER",
+    "payload": "BASE64_PAYLOAD",
+    "signature": "BASE64_SIGNATURE"
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "Pong (Pickleball)",
+    "homeUrl": "https://VishalGoswamii.github.io/pong-miniapp/",
+    "iconUrl": "https://VishalGoswamii.github.io/pong-miniapp/assets/icon.png",
+    "splashImageUrl": "https://VishalGoswamii.github.io/pong-miniapp/assets/icon-200.png",
+    "splashBackgroundColor": "#0f172a",
+    "ogTitle": "Pong (Pickleball)",
+    "ogDescription": "Classic Pong \u2014 beat the AI!",
+    "ogImageUrl": "https://VishalGoswamii.github.io/pong-miniapp/assets/og.png",
+    "primaryCategory": "games",
+    "noindex": false
+  }
+}
