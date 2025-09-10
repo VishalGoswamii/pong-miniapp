@@ -58,6 +58,43 @@
     #hint { position:fixed; bottom:calc(env(safe-area-inset-bottom) + 10px); left:0; right:0; text-align:center; color:#e7f2ff; font-size:13px; opacity:.9; }
   </style>
 </head>
+  <!-- Tell Farcaster we're ready (hide the splash) -->
+<script>
+(function () {
+  // call ready() if an SDK is already injected
+  function tryReadyFromGlobal() {
+    try {
+      if (window.__fc_sdk && window.__fc_sdk.actions && typeof window.__fc_sdk.actions.ready === 'function') {
+        window.__fc_sdk.actions.ready();
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  // attempt to import the SDK and then call ready()
+  async function importAndReady() {
+    try {
+      const mod = await import('https://esm.sh/@farcaster/miniapp-sdk');
+      const sdk = mod.sdk || mod;
+      window.__fc_sdk = sdk;
+      if (sdk && sdk.actions && typeof sdk.actions.ready === 'function') {
+        sdk.actions.ready();
+      }
+    } catch (e) {
+      // outside Farcaster or import blocked — ignore
+    }
+  }
+
+  // run as soon as DOM is usable
+  if (!tryReadyFromGlobal()) {
+    importAndReady();
+    // backup: try again shortly in case SDK injects late
+    setTimeout(tryReadyFromGlobal, 1200);
+  }
+})();
+</script>
+
 <body>
   <div id="wrap"><canvas id="game" aria-label="Pong"></canvas></div>
   <div id="score" aria-live="polite">0 : 0</div>
