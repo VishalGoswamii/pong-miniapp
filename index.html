@@ -108,17 +108,12 @@
 
         <div class="mode">
           <div>
-            <h3>Online 1v1 (Farcaster)</h3>
-            <p>Create a room and share the code, or join a friend’s room.</p>
-            <div class="row">
-              <button class="primary" id="btnCreate">Create Room</button>
-              <input id="roomCode" placeholder="Enter code" />
-              <button class="ghost" id="btnJoin">Join</button>
-            </div>
-            <div class="row" id="shareRow" style="display:none;">
-              <input id="shareLink" readonly />
-              <button class="primary" id="copyLink">Copy</button>
-            </div>
+            <h3>Online 1v1 (Quick Match)</h3>
+<p>Tap to find the next available player on the server.</p>
+<div class="row">
+  <button class="primary" id="btnFind">Find Match</button>
+</div>
+
           </div>
         </div>
       </div>
@@ -141,8 +136,7 @@
   const toast = document.getElementById('toast');
 
   const btnSingle = document.getElementById('btnSingle');
-  const btnCreate = document.getElementById('btnCreate');
-  const btnJoin   = document.getElementById('btnJoin');
+  const btnFind  = document.getElementById('btnFind');
   const roomCode  = document.getElementById('roomCode');
   const shareRow  = document.getElementById('shareRow');
   const shareLink = document.getElementById('shareLink');
@@ -411,6 +405,68 @@
     setBadgesForSingle();
     startGame();
   });
+
+    // QUICK MATCH: press once, we’ll pair you with the next player
+btnFind.addEventListener('click', async () => {
+  showToast('Looking for an opponent…');
+
+  // Create a random PeerJS ID so others can connect to you if you are the first in queue
+  isHost = false; // we don't know yet; if someone connects to us, we become host
+  peer = new Peer(); // uses PeerJS cloud signalling
+
+  // If someone connects to us first -> we are HOST
+  peer.on('connection', c => {
+    MODE = 'online-host'; aiOn = false; conn = c;
+    setPlayerBadge(p1img, p1name, me, 'You');
+    setPlayerBadge(p2img, p2name, null, 'Player 2'); p2tag.textContent = 'P2';
+    overlay.classList.add('hidden');
+    conn.on('data', onNetDataFromGuest);
+    conn.on('close', () => { showToast('Player left'); endOnline(); });
+    startGame(); // host simulates the ball
+    // send hello with my user
+    const u = me || {};
+    try { conn.send({ t:'hi', u: { fid:u.fid, username:u.username, displayName:u.displayName, pfpUrl:u.pfpUrl } }); } catch(e){}
+  });
+
+  peer.on('error', e => { showToast('Network error'); console.warn(e); endOnline(); });
+
+  // Once we have an ID, ask the match server to pair us
+  peer.on('open', async (id) => {
+    const u = me || {};
+    let resp;
+    try {
+      resp = await fetch('/api/match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ peerId: id, user: { fid:u.fid, username:u.username, displayName:u.displayName, pfpUrl:u.pfpUrl } })
+      }).then(r => r.json());
+    } catch (e) {
+      showToast('Match server unreachable');
+      return endOnline();
+    }
+
+    if (resp && resp.opponentPeerId) {
+      // We got someone waiting -> we are GUEST, connect to their peer
+      MODE = 'online-guest'; aiOn = false; overlay.classList.add('hidden');
+      conn = peer.connect(resp.opponentPeerId);
+      conn.on('open', () => {
+        const u = me || {};
+        try { conn.send({ t:'hi', u: { fid:u.fid, username:u.username, displayName:u.displayName, pfpUrl:u.pfpUrl } }); } catch(e){}
+        running = true; last = 0; requestAnimationFrame(loop); // guest renders incoming state
+      });
+      conn.on('data', onNetDataFromHost);
+      conn.on('close', () => { showToast('Disconnected'); endOnline(); });
+      setPlayerBadge(p2img, p2name, me, 'You'); p2tag.textContent = 'P2';
+    } else if (resp && resp.wait) {
+      showToast('Waiting for opponent…');
+      // nothing else to do — when the next player presses Find Match,
+      // they will connect to our PeerJS ID and our 'connection' handler (above) will fire.
+    } else {
+      showToast('Match error');
+      endOnline();
+    }
+  });
+});
 
   function makeCode(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
 
