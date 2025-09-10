@@ -58,19 +58,6 @@
     #hint { position:fixed; bottom:calc(env(safe-area-inset-bottom) + 10px); left:0; right:0; text-align:center; color:#e7f2ff; font-size:13px; opacity:.9; }
   </style>
 </head>
-<!-- Tell Farcaster to hide the splash once the page is ready (Android-safe, no imports) -->
-<script>
-(function tick(i){
-  try {
-    if (window.__fc_sdk && window.__fc_sdk.actions && typeof window.__fc_sdk.actions.ready === 'function') {
-      window.__fc_sdk.actions.ready();
-      return; // done 🎉
-    }
-  } catch (e) { /* ignore */ }
-  if (i < 40) setTimeout(function(){ tick(i+1); }, 100); // retry up to ~4s
-})(0);
-</script>
-
 
 <body>
   <div id="wrap"><canvas id="game" aria-label="Pong"></canvas></div>
@@ -290,5 +277,19 @@
 
   resize(); draw();
   </script>
+
+  <!-- Tell Farcaster to hide the splash once the page is ready (Android-safe, no imports) -->
+<script>
+(function tick(i){
+  try {
+    if (window.__fc_sdk && window.__fc_sdk.actions && typeof window.__fc_sdk.actions.ready === 'function') {
+      window.__fc_sdk.actions.ready();
+      return; // done 🎉
+    }
+  } catch (e) { /* ignore */ }
+  if (i < 40) setTimeout(function(){ tick(i+1); }, 100); // retry up to ~4s
+})(0);
+</script>
+  
 </body>
 </html>
