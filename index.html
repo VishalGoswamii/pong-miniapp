@@ -21,21 +21,14 @@
     }
   }' />
 
-  <!-- PeerJS for online 1v1 (CDN) -->
+  <!-- PeerJS for online 1v1 (deferred; we guard for when it isn't ready yet) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js" defer></script>
 
   <style>
     :root{
-      --courtOuter:#061429;
-      --courtMain:#1E40AF;
-      --courtKitchen:#ef4444;
-      --courtLine:#F8FAFC;
-      --centerRed:#ef4444;
-      --ballY:#FDE047;
-      --paddleFace:#D4DEE9;
-      --paddleEdge:#425C7A;
+      --courtOuter:#061429; --courtMain:#1E40AF; --courtKitchen:#ef4444; --courtLine:#F8FAFC;
+      --centerRed:#ef4444; --ballY:#FDE047; --paddleFace:#D4DEE9; --paddleEdge:#425C7A;
     }
-
     html, body { margin:0; height:100%; background:var(--courtOuter); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
     #wrap { position:fixed; inset:0; z-index:0; }
     canvas { display:block; width:100%; height:100%; touch-action:none; }
@@ -63,7 +56,6 @@
     .mode p  { margin:0; font-size:13px; opacity:.9; }
 
     .row { display:flex; gap:10px; justify-content:center; align-items:center; flex-wrap:wrap; margin-top:10px; }
-    .row input { padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.18); background:#0b1424; color:#e9f1ff; width:160px; text-align:center; }
     button { padding:12px 16px; border-radius:14px; border:1px solid rgba(255,255,255,0.18); font-weight:900; font-size:15px; cursor:pointer; }
     .primary { color:#08111a; background:#60A5FA; box-shadow: 0 8px 24px rgba(37,99,235,.45), inset 0 0 0 1px rgba(255,255,255,0.18); }
     .ghost   { color:#e9f1ff; background:transparent; }
@@ -109,15 +101,11 @@
         <div class="mode">
           <div>
             <h3>Online 1v1 (Quick Match)</h3>
-<p>Tap to find the next available player on the server.</p>
-<div class="row">
-  <button class="primary" id="btnFind">Find Match</button>
-</div>
-
+            <p>Tap to find the next available player on the server.</p>
           </div>
+          <button class="primary" id="btnFind">Find Match</button>
         </div>
       </div>
-
     </div>
   </div>
 
@@ -128,7 +116,7 @@
   'use strict';
   /*********** DOM ***********/
   const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d', { alpha:false });
+  const ctx = canvas.getContext('2d', { alpha:false }) || canvas.getContext('2d'); // safe fallback
   const scoreEl = document.getElementById('score');
   const overlay = document.getElementById('overlay');
   const p1img = document.getElementById('p1img'), p1name = document.getElementById('p1name');
@@ -136,16 +124,11 @@
   const toast = document.getElementById('toast');
 
   const btnSingle = document.getElementById('btnSingle');
-  const btnFind  = document.getElementById('btnFind');
-  const roomCode  = document.getElementById('roomCode');
-  const shareRow  = document.getElementById('shareRow');
-  const shareLink = document.getElementById('shareLink');
-  const copyLink  = document.getElementById('copyLink');
+  const btnFind   = document.getElementById('btnFind');
 
   function showToast(t){ toast.textContent = t; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 2500); }
 
   /*********** Farcaster user (username + pfp) ***********/
-  // Pull from any known SDK global; if not inside Farcaster, returns null.
   function readMiniUser(){
     try {
       const c1 = window.__fc_sdk && window.__fc_sdk.context;
@@ -157,7 +140,6 @@
     } catch(e){}
     return null;
   }
-
   function setPlayerBadge(elImg, elName, obj, fallbackTag){
     if (obj) {
       elName.textContent = obj.displayName || obj.username || ('fid ' + obj.fid);
@@ -168,7 +150,6 @@
       elImg.removeAttribute('src'); elImg.alt = '';
     }
   }
-
   const me = readMiniUser(); // may be null outside Farcaster
   setPlayerBadge(p1img, p1name, me, 'You');
 
@@ -179,7 +160,7 @@
   const paddle = { w: 4*dpr, h: 70*dpr };
   let playerY=0, oppY=0;
   const ball = { x:0, y:0, r:9, vx:0, vy:0, baseSpeed:380 };
-  let speedMul = 1.0; // single speed (no Slow/Normal/Fast selector)
+  let speedMul = 1.0; // single speed
 
   let scoreL=0, scoreR=0;
 
@@ -226,7 +207,6 @@
     const y = (clientY - r.top) * dpr;
     playerY = clamp(y, paddle.h/2, H - paddle.h/2);
     if (MODE === 'online-guest' && conn && conn.open) {
-      // guest sends input to host
       try { conn.send({ t:'in', y: playerY }); } catch(e){}
     }
   }
@@ -244,12 +224,11 @@
   canvas.addEventListener('touchend',   ()=> dragging=false, {passive:true});
   canvas.addEventListener('touchcancel',()=> dragging=false, {passive:true});
 
-  function startSingleIfNeeded(){
-    if (MODE === 'single' && !running) startGame();
-  }
+  function startSingleIfNeeded(){ if (MODE === 'single' && !running) startGame(); }
 
   /*********** Rendering ***********/
   function drawCourt(){
+    if (!ctx) return; // safety
     ctx.fillStyle = css('--courtOuter'); ctx.fillRect(0,0,W,H);
     ctx.fillStyle = css('--courtMain'); ctx.fillRect(0,0,W,H);
     const kW = W * (7/44);
@@ -268,7 +247,6 @@
     ctx.beginPath(); ctx.moveTo(0, H/2); ctx.lineTo(W, H/2); ctx.stroke();
     ctx.restore();
   }
-
   function drawPaddle(x,y,w,h){
     ctx.fillStyle = css('--paddleFace');
     const r = Math.min(6*dpr, w);
@@ -282,7 +260,6 @@
     ctx.fill();
     ctx.lineWidth = 1*dpr; ctx.strokeStyle = css('--paddleEdge'); ctx.stroke();
   }
-
   function drawBall(){
     const rr = ball.r*dpr;
     ctx.fillStyle = css('--ballY');
@@ -290,8 +267,8 @@
     ctx.lineWidth = 1.2*dpr; ctx.strokeStyle = 'rgba(0,0,0,0.25)';
     ctx.beginPath(); ctx.arc(ball.x, ball.y, rr, 0, Math.PI*2); ctx.stroke();
   }
-
   function draw(){
+    if (!ctx) return;
     drawCourt();
     const px = 22*dpr, ax = W - (22*dpr + paddle.w);
     drawPaddle(px, playerY, paddle.w, paddle.h);
@@ -351,7 +328,7 @@
       oppY = clamp(oppY, paddle.h/2, H - paddle.h/2);
     }
 
-    // clamp paddles
+    // clamp paddle
     playerY = clamp(playerY, paddle.h/2, H - paddle.h/2);
 
     draw();
@@ -378,7 +355,6 @@
     last = ts;
     if (!paused) {
       if (MODE === 'single' || MODE === 'online-host') stepHostOrSingle(dt);
-      // online-guest: draw happens on incoming state, but still render last state to keep smooth
       if (MODE === 'online-guest') draw();
     }
     if (running) requestAnimationFrame(loop);
@@ -393,139 +369,78 @@
     paused=false; running=true; last=0;
     requestAnimationFrame(loop);
   }
-
   function setBadgesForSingle(){
     setPlayerBadge(p1img, p1name, me, 'You');
-    setPlayerBadge(p2img, p2name, { displayName:'CPU' }, 'CPU');
-    p2tag.textContent = 'AI';
+    setPlayerBadge(p2img, p2name, { displayName:'CPU' }, 'CPU'); p2tag.textContent = 'AI';
   }
 
-  btnSingle.addEventListener('click', ()=>{
+  btnSingle && btnSingle.addEventListener('click', ()=>{
     MODE = 'single'; aiOn = true;
     setBadgesForSingle();
     startGame();
   });
 
-    // QUICK MATCH: press once, we’ll pair you with the next player
-btnFind.addEventListener('click', async () => {
-  showToast('Looking for an opponent…');
+  // QUICK MATCH (needs /api/match + Vercel KV configured)
+  btnFind && btnFind.addEventListener('click', async () => {
+    showToast('Looking for an opponent…');
+    if (!window.Peer) { showToast('Loading network libs… try again'); return; }
 
-  // Create a random PeerJS ID so others can connect to you if you are the first in queue
-  isHost = false; // we don't know yet; if someone connects to us, we become host
-  peer = new Peer(); // uses PeerJS cloud signalling
+    isHost = false; // unknown yet
+    peer = new Peer(); // uses PeerJS cloud signalling
 
-  // If someone connects to us first -> we are HOST
-  peer.on('connection', c => {
-    MODE = 'online-host'; aiOn = false; conn = c;
-    setPlayerBadge(p1img, p1name, me, 'You');
-    setPlayerBadge(p2img, p2name, null, 'Player 2'); p2tag.textContent = 'P2';
-    overlay.classList.add('hidden');
-    conn.on('data', onNetDataFromGuest);
-    conn.on('close', () => { showToast('Player left'); endOnline(); });
-    startGame(); // host simulates the ball
-    // send hello with my user
-    const u = me || {};
-    try { conn.send({ t:'hi', u: { fid:u.fid, username:u.username, displayName:u.displayName, pfpUrl:u.pfpUrl } }); } catch(e){}
-  });
-
-  peer.on('error', e => { showToast('Network error'); console.warn(e); endOnline(); });
-
-  // Once we have an ID, ask the match server to pair us
-  peer.on('open', async (id) => {
-    const u = me || {};
-    let resp;
-    try {
-      resp = await fetch('/api/match', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ peerId: id, user: { fid:u.fid, username:u.username, displayName:u.displayName, pfpUrl:u.pfpUrl } })
-      }).then(r => r.json());
-    } catch (e) {
-      showToast('Match server unreachable');
-      return endOnline();
-    }
-
-    if (resp && resp.opponentPeerId) {
-      // We got someone waiting -> we are GUEST, connect to their peer
-      MODE = 'online-guest'; aiOn = false; overlay.classList.add('hidden');
-      conn = peer.connect(resp.opponentPeerId);
-      conn.on('open', () => {
-        const u = me || {};
-        try { conn.send({ t:'hi', u: { fid:u.fid, username:u.username, displayName:u.displayName, pfpUrl:u.pfpUrl } }); } catch(e){}
-        running = true; last = 0; requestAnimationFrame(loop); // guest renders incoming state
-      });
-      conn.on('data', onNetDataFromHost);
-      conn.on('close', () => { showToast('Disconnected'); endOnline(); });
-      setPlayerBadge(p2img, p2name, me, 'You'); p2tag.textContent = 'P2';
-    } else if (resp && resp.wait) {
-      showToast('Waiting for opponent…');
-      // nothing else to do — when the next player presses Find Match,
-      // they will connect to our PeerJS ID and our 'connection' handler (above) will fire.
-    } else {
-      showToast('Match error');
-      endOnline();
-    }
-  });
-});
-
-  function makeCode(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
-
-  btnCreate.addEventListener('click', ()=>{
-    const code = makeCode();
-    if (!window.Peer) { showToast('Loading network libs... try again in a sec'); return; }
-    isHost = true; MODE = 'online-host'; aiOn = false;
-    peer = new Peer('pong-' + code); // uses PeerJS cloud by default
-    peer.on('open', id=>{
-      shareRow.style.display = 'flex';
-      const url = location.origin + location.pathname + '?join=' + code;
-      shareLink.value = url;
-      copyLink.onclick = ()=>{ navigator.clipboard.writeText(url); showToast('Link copied'); };
-      // badges
+    // If someone connects to us first -> we are HOST
+    peer.on('connection', c => {
+      MODE = 'online-host'; aiOn = false; conn = c;
       setPlayerBadge(p1img, p1name, me, 'You');
-      setPlayerBadge(p2img, p2name, null, 'Waiting…'); p2tag.textContent = 'P2';
+      setPlayerBadge(p2img, p2name, null, 'Player 2'); p2tag.textContent = 'P2';
       overlay.classList.add('hidden');
+      conn.on('data', onNetDataFromGuest);
+      conn.on('close', () => { showToast('Player left'); endOnline(); });
       startGame();
-    });
-    peer.on('connection', c=>{
-      conn = c;
-      showToast('Player joined!');
-      // send hello with my user
       const u = me || {};
       try { conn.send({ t:'hi', u: { fid:u.fid, username:u.username, displayName:u.displayName, pfpUrl:u.pfpUrl } }); } catch(e){}
-      conn.on('data', onNetDataFromGuest);
-      conn.on('close', ()=>{ showToast('Player left'); endOnline(); });
     });
-    peer.on('error', err=>{ showToast('Net error'); console.warn(err); endOnline(); });
-  });
 
-  btnJoin.addEventListener('click', ()=>{
-    const code = (roomCode.value || '').trim().toUpperCase();
-    if (!code) { showToast('Enter a room code'); return; }
-    if (!window.Peer) { showToast('Loading network libs... try again'); return; }
-    isHost = false; MODE = 'online-guest'; aiOn = false;
-    peer = new Peer(); // random id
-    peer.on('open', ()=>{
-      conn = peer.connect('pong-' + code);
-      conn.on('open', ()=>{
-        showToast('Connected!');
-        // send hello with my user
-        const u = me || {};
-        try { conn.send({ t:'hi', u: { fid:u.fid, username:u.username, displayName:u.displayName, pfpUrl:u.pfpUrl } }); } catch(e){}
-        overlay.classList.add('hidden');
-        // guest waits for host state; render last received state continuously
-        running=true; last=0; requestAnimationFrame(loop);
-      });
-      conn.on('data', onNetDataFromHost);
-      conn.on('close', ()=>{ showToast('Disconnected'); endOnline(); });
+    peer.on('error', e => { showToast('Network error'); console.warn(e); endOnline(); });
+
+    peer.on('open', async (id) => {
+      const u = me || {};
+      let resp;
+      try {
+        resp = await fetch('/api/match', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ peerId: id, user: { fid:u.fid, username:u.username, displayName:u.displayName, pfpUrl:u.pfpUrl } })
+        }).then(r => r.json());
+      } catch (e) {
+        showToast('Match server unreachable');
+        return endOnline();
+      }
+
+      if (resp && resp.opponentPeerId) {
+        MODE = 'online-guest'; aiOn = false; overlay.classList.add('hidden');
+        conn = peer.connect(resp.opponentPeerId);
+        conn.on('open', () => {
+          const u = me || {};
+          try { conn.send({ t:'hi', u: { fid:u.fid, username:u.username, displayName:u.displayName, pfpUrl:u.pfpUrl } }); } catch(e){}
+          running = true; last = 0; requestAnimationFrame(loop);
+        });
+        conn.on('data', onNetDataFromHost);
+        conn.on('close', () => { showToast('Disconnected'); endOnline(); });
+        setPlayerBadge(p2img, p2name, me, 'You'); p2tag.textContent = 'P2';
+      } else if (resp && resp.wait) {
+        showToast('Waiting for opponent…');
+      } else {
+        showToast('Match error');
+        endOnline();
+      }
     });
-    peer.on('error', err=>{ showToast('Net error'); console.warn(err); endOnline(); });
   });
 
   function endOnline(){
     running=false; overlay.classList.remove('hidden');
     try { conn && conn.close(); } catch(e){}
     try { peer && peer.destroy(); } catch(e){}
-    conn=null; peer=null; MODE='home'; shareRow.style.display='none';
+    conn=null; peer=null; MODE='home';
   }
 
   // host receives guest input / hello
@@ -542,117 +457,47 @@ btnFind.addEventListener('click', async () => {
   function onNetDataFromHost(msg){
     if (!msg || typeof msg !== 'object') return;
     if (msg.t === 'st') {
-      // world state
       ball.x=msg.x; ball.y=msg.y; ball.vx=msg.vx; ball.vy=msg.vy;
       playerY=msg.p1; oppY=msg.p2; scoreL=msg.sl; scoreR=msg.sr;
       scoreEl.textContent = scoreL + " : " + scoreR;
       if (W!==msg.w || H!==msg.h) resize();
       draw();
     } else if (msg.t === 'hi') {
-      oppUser = msg.u || null; // host user shown on left as P1
+      oppUser = msg.u || null;
       setPlayerBadge(p1img, p1name, oppUser, 'P1');
       setPlayerBadge(p2img, p2name, me, 'You'); p2tag.textContent = 'P2';
     }
   }
 
-  // Deep-link auto-join (?join=CODE)
-  (function(){
-    const m = /[?&]join=([A-Z0-9]{4})/i.exec(location.search);
-    if (m) { roomCode.value = m[1].toUpperCase(); }
-  })();
+  // Deep-link auto-join (?join=CODE) — harmless even if unused
+  (function(){ const m = /[?&]join=([A-Z0-9]{4})/i.exec(location.search); if (m) {} })();
 
   /*********** Boot ***********/
-  function drawOnce(){ draw(); }
-  function init(){
-    resize(); drawOnce();
-  }
+  function init(){ resize(); draw(); }
   init();
-
-  // Start buttons also call sdk.actions.ready() via the global snippet below.
-
   </script>
 
-  <!-- Farcaster: hide splash once ready (robust) -->
+  <!-- Farcaster: hide splash once ready (robust, no imports) -->
   <script>
   (function () {
     function callReadyFrom(obj){
       try{
-        if (obj && obj.actions && typeof obj.actions.ready === 'function') {
-          obj.actions.ready(); return true;
-        }
+        if (obj && obj.actions && typeof obj.actions.ready === 'function') { obj.actions.ready(); return true; }
       }catch(e){}
       return false;
     }
     function tryAll(){
       if (callReadyFrom(window.__fc_sdk)) return true;
-      if (window.farcaster && tryAll.fromF(window.farcaster.sdk)) return true;
-      if (window.frame && tryAll.fromF(window.frame.sdk)) return true;
+      if (window.farcaster && callReadyFrom(window.farcaster.sdk)) return true;
+      if (window.frame && callReadyFrom(window.frame.sdk)) return true;
       if (callReadyFrom(window.sdk)) return true;
       return false;
     }
-    tryAll.fromF = callReadyFrom;
-
     if (!tryAll()) {
       requestAnimationFrame(function(){ requestAnimationFrame(tryAll); });
       var tries = 0, t = setInterval(function(){ if (tryAll() || ++tries > 60) clearInterval(t); }, 100);
     }
   })();
   </script>
-
-  <!-- Farcaster: ALWAYS call ready() (Android-safe, no optional chaining) -->
-<script>
-(function () {
-  function callReadyFrom(obj){
-    try{
-      if (obj && obj.actions && typeof obj.actions.ready === 'function') {
-        obj.actions.ready();
-        return true;
-      }
-    }catch(e){}
-    return false;
-  }
-  function tryAll(){
-    if (callReadyFrom(window.__fc_sdk)) return true;     // official global
-    if (window.farcaster && callReadyFrom(window.farcaster.sdk)) return true;
-    if (window.frame && callReadyFrom(window.frame.sdk)) return true;
-    if (callReadyFrom(window.sdk)) return true;          // some clients expose this
-    return false;
-  }
-
-  // 1) Try immediately and after first paint
-  if (!tryAll()) {
-    requestAnimationFrame(function(){ requestAnimationFrame(tryAll); });
-  }
-
-  // 2) Keep retrying for a few seconds (Android WebView may inject late)
-  var tries = 0, t = setInterval(function(){
-    if (tryAll() || ++tries > 60) clearInterval(t); // ~6s
-  }, 100);
-
-  // 3) Load SDK from CDN as a fallback and try again
-  function loadUMD(){
-    var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@latest/dist/index.min.js';
-    s.onload = function(){ setTimeout(tryAll, 50); };
-    document.head.appendChild(s);
-  }
-  try {
-    // Some environments support ESM import; if it fails we still load UMD
-    import('https://esm.sh/@farcaster/miniapp-sdk@latest')
-      .then(function(mod){
-        var sdk = mod.sdk || mod.default || mod;
-        if (sdk && sdk.actions && typeof sdk.actions.ready === 'function') {
-          try { sdk.actions.ready(); } catch(e) {}
-          window.__fc_sdk = sdk;
-        }
-      })
-      .catch(function(){ loadUMD(); });
-  } catch(e) { loadUMD(); }
-
-  // 4) Also try on full window load
-  window.addEventListener('load', function(){ setTimeout(tryAll, 50); });
-})();
-</script>
-
 </body>
 </html>
