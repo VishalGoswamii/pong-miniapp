@@ -21,7 +21,7 @@
     }
   }' />
 
-  <!-- PeerJS for online 1v1 (deferred; we guard for when it isn't ready yet) -->
+  <!-- PeerJS for online 1v1 (deferred; safe-guarded) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js" defer></script>
 
   <style>
@@ -116,7 +116,7 @@
   'use strict';
   /*********** DOM ***********/
   const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d', { alpha:false }) || canvas.getContext('2d'); // safe fallback
+  const ctx = canvas.getContext('2d', { alpha:false }) || canvas.getContext('2d');
   const scoreEl = document.getElementById('score');
   const overlay = document.getElementById('overlay');
   const p1img = document.getElementById('p1img'), p1name = document.getElementById('p1name');
@@ -126,6 +126,7 @@
   const btnSingle = document.getElementById('btnSingle');
   const btnFind   = document.getElementById('btnFind');
 
+  const vib = (ms)=>{ try{ if(navigator.vibrate) navigator.vibrate(ms);}catch(e){} };
   function showToast(t){ toast.textContent = t; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 2500); }
 
   /*********** Farcaster user (username + pfp) ***********/
@@ -174,6 +175,10 @@
   let peer = null, conn = null, isHost = false, netLastSend = 0;
   let oppUser = null;
 
+  // JUICE + TRAIL ( #6, #7 )
+  let shake = 0, flash = 0;
+  const trail = [];
+
   function resize(){
     const w = innerWidth, h = innerHeight;
     canvas.width = Math.floor(w * dpr);
@@ -199,6 +204,8 @@
     ball.vy = Math.sin(angle) * sp;
     playerY = H/2; oppY = H/2;
     noScoreUntil = performance.now() + 200;
+    // clear trail on serve
+    trail.length = 0;
   }
 
   // Input (pointer + touch)
@@ -228,7 +235,7 @@
 
   /*********** Rendering ***********/
   function drawCourt(){
-    if (!ctx) return; // safety
+    if (!ctx) return;
     ctx.fillStyle = css('--courtOuter'); ctx.fillRect(0,0,W,H);
     ctx.fillStyle = css('--courtMain'); ctx.fillRect(0,0,W,H);
     const kW = W * (7/44);
@@ -261,6 +268,15 @@
     ctx.lineWidth = 1*dpr; ctx.strokeStyle = css('--paddleEdge'); ctx.stroke();
   }
   function drawBall(){
+    // trail first (#7)
+    for (let i=0;i<trail.length;i++){
+      const t = i / trail.length;
+      ctx.globalAlpha = t * 0.5;
+      ctx.beginPath(); ctx.arc(trail[i].x, trail[i].y, (ball.r*dpr) * (0.6 + 0.4*t), 0, Math.PI*2);
+      ctx.fillStyle = css('--ballY'); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // main ball
     const rr = ball.r*dpr;
     ctx.fillStyle = css('--ballY');
     ctx.beginPath(); ctx.arc(ball.x, ball.y, rr, 0, Math.PI*2); ctx.fill();
@@ -269,11 +285,30 @@
   }
   function draw(){
     if (!ctx) return;
+
+    // tiny screenshake (#6)
+    let usedShake = false;
+    if (shake > 0) {
+      usedShake = true;
+      const ox = (Math.random()*2-1) * shake;
+      const oy = (Math.random()*2-1) * shake;
+      ctx.save(); ctx.translate(ox, oy);
+    }
+
     drawCourt();
     const px = 22*dpr, ax = W - (22*dpr + paddle.w);
     drawPaddle(px, playerY, paddle.w, paddle.h);
     drawPaddle(ax, oppY,     paddle.w, paddle.h);
     drawBall();
+
+    if (usedShake) { ctx.restore(); shake *= 0.88; if (shake < 0.6) shake = 0; }
+
+    // impact flash overlay (#6)
+    if (flash > 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      ctx.fillRect(0,0,W,H);
+      flash -= 16; if (flash < 0) flash = 0;
+    }
   }
 
   /*********** Step (host or single) ***********/
@@ -281,6 +316,9 @@
     const oldX = ball.x;
     const r = ball.r * dpr;
     ball.x += ball.vx * dt; ball.y += ball.vy * dt;
+
+    // record trail position (#7)
+    trail.push({x:ball.x, y:ball.y}); if (trail.length > 10) trail.shift();
 
     // walls
     if (ball.y < r) { ball.y = r; ball.vy *= -1; }
@@ -297,9 +335,12 @@
         const t = (ball.y - playerY) / (paddle.h/2);
         ball.vx = Math.abs(ball.vx) * 1.01;
         ball.vy = (ball.vy * 0.5) + (t * 260 * dpr);
+        // clamp runaway speed
         const maxSp = ball.baseSpeed * speedMul * dpr * 1.35;
         const curSp = Math.hypot(ball.vx, ball.vy);
         if (curSp > maxSp) { const m = maxSp / curSp; ball.vx *= m; ball.vy *= m; }
+        // JUICE + HAPTIC (#6, #10)
+        shake = 4 * dpr; flash = 120; vib(10);
       }
     } else {
       if (ball.x + r >= ax && ball.x + r <= ax + paddle.w && ball.y >= aTop && ball.y <= aBot) {
@@ -310,6 +351,8 @@
         const maxSp = ball.baseSpeed * speedMul * dpr * 1.35;
         const curSp = Math.hypot(ball.vx, ball.vy);
         if (curSp > maxSp) { const m = maxSp / curSp; ball.vx *= m; ball.vy *= m; }
+        // JUICE + HAPTIC (#6, #10)
+        shake = 4 * dpr; flash = 120; vib(10);
       }
     }
 
@@ -347,6 +390,16 @@
     if (side === 'L') scoreL++; else scoreR++;
     scoreEl.textContent = scoreL + " : " + scoreR;
     scoreEl.classList.remove('bump'); void scoreEl.offsetWidth; scoreEl.classList.add('bump');
+
+    // #1 Dynamic AI: adapt speed based on score difference
+    const diff = scoreL - scoreR; // positive when you lead
+    if (diff <= -2) { aiSpeed = 300 * dpr; }   // easier if you're losing
+    else if (diff >= 2) { aiSpeed = 360 * dpr; } // tougher if you're winning
+    else { aiSpeed = 330 * dpr; }              // neutral
+
+    // haptic on score (#10)
+    vib(15);
+
     resetBall(side === 'L' ? -1 : 1);
   }
 
