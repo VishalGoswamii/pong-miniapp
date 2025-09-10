@@ -278,18 +278,51 @@
   resize(); draw();
   </script>
 
-  <!-- Tell Farcaster to hide the splash once the page is ready (Android-safe, no imports) -->
+ <!-- Farcaster Android-safe: hide splash no matter how the SDK is exposed -->
 <script>
-(function tick(i){
-  try {
-    if (window.__fc_sdk && window.__fc_sdk.actions && typeof window.__fc_sdk.actions.ready === 'function') {
-      window.__fc_sdk.actions.ready();
-      return; // done 🎉
+(function () {
+  // 1) Try any injected globals Farcaster clients use
+  function tryAllGlobals() {
+    try {
+      // official
+      if (window.__fc_sdk?.actions?.ready) { window.__fc_sdk.actions.ready(); return true; }
+      // some hosts expose under "farcaster" or "frame"
+      if (window.farcaster?.sdk?.actions?.ready) { window.farcaster.sdk.actions.ready(); return true; }
+      if (window.frame?.sdk?.actions?.ready) { window.frame.sdk.actions.ready(); return true; }
+      // just in case:
+      if (window.sdk?.actions?.ready) { window.sdk.actions.ready(); return true; }
+    } catch (e) {}
+    return false;
+  }
+
+  // 2) If not injected yet, try importing the SDK (ESM)
+  async function importAndReady() {
+    try {
+      const mod = await import('https://esm.sh/@farcaster/miniapp-sdk@latest');
+      const sdk = mod.sdk || mod.default || mod;
+      if (sdk?.actions?.ready) await sdk.actions.ready();
+    } catch (e) {
+      // 3) Fallback: load the UMD bundle, then try the common globals again
+      try {
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk/dist/index.min.js';
+        s.onload = () => setTimeout(tryAllGlobals, 50);
+        document.head.appendChild(s);
+      } catch (_) {}
     }
-  } catch (e) { /* ignore */ }
-  if (i < 40) setTimeout(function(){ tick(i+1); }, 100); // retry up to ~4s
-})(0);
+  }
+
+  // run now + retry a few times (Android WebViews can inject slightly late)
+  if (!tryAllGlobals()) {
+    importAndReady();
+    let tries = 0;
+    const t = setInterval(() => {
+      if (tryAllGlobals() || ++tries > 40) clearInterval(t);
+    }, 120);
+  }
+})();
 </script>
+
   
 </body>
 </html>
