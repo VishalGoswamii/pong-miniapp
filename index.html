@@ -20,31 +20,52 @@
       }
     }
   }' />
-  <!-- Optional fallback for older clients -->
-  <meta name="fc:frame" content='{
-    "version": "1",
-    "imageUrl": "https://pong-miniapp.vercel.app/og.png",
-    "button": {
-      "title": "Play Pong",
-      "action": {
-        "type": "launch_frame",
-        "name": "Pong",
-        "url": "https://pong-miniapp.vercel.app/",
-        "splashImageUrl": "https://pong-miniapp.vercel.app/icon-200.png",
-        "splashBackgroundColor": "#0f172a"
-      }
-    }
-  }' />
 
   <style>
-    /* keep your existing CSS here (unchanged) */
+    :root{
+      --courtOuter:#061429;      /* outside run-off */
+      --courtMain:#1E40AF;       /* main blue playing area */
+      --courtKitchen:#ef4444;    /* kitchen (NVZ) strips red */
+      --courtLine:#F8FAFC;       /* white lines */
+      --centerRed:#ef4444;       /* red center line */
+      --ballY:#FDE047;           /* pickleball yellow */
+      --paddleFace:#D4DEE9;      /* paddle face */
+      --paddleEdge:#425C7A;      /* paddle edge */
+    }
+
+    html, body { margin:0; height:100%; background:var(--courtOuter); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+
+    #wrap { position:fixed; inset:0; z-index:0; }
+    canvas { display:block; width:100%; height:100%; touch-action:none; }
+
+    #score { position:fixed; top:calc(env(safe-area-inset-top) + 10px); left:50%; transform:translateX(-50%);
+      color:#fff; font-weight:1000; letter-spacing:1.2px; font-size:28px; padding:8px 14px; border-radius:16px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.14), rgba(255,255,255,0.07));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16), 0 14px 40px rgba(0,0,0,0.45);
+    }
+    #score.bump { animation: bump .18s ease; }
+    @keyframes bump { 50% { transform: translateX(-50%) scale(1.08);} }
+
+    #overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:2; }
+    #overlay.hidden { display:none; }
+    .card { background: rgba(12,18,32,0.86);
+      border:1px solid rgba(255,255,255,0.14); color:#e9f1ff; padding:26px 22px; border-radius:18px; text-align:center;
+      box-shadow: 0 28px 90px rgba(0,0,0,0.55); max-width:560px; margin:24px; }
+    .title { margin:6px 0 2px; font-size:32px; font-weight:1000; color:#fff; }
+    .brand { margin-top:0; font-size:14px; letter-spacing:0.6px; opacity:0.9; }
+    .sub { margin-top:8px; opacity:0.85; }
+    .actions { margin-top:14px; display:flex; justify-content:center; gap:12px; }
+    .card button, .card select { padding:12px 16px; border-radius:14px; border:1px solid rgba(255,255,255,0.18); font-weight:900; font-size:15px; cursor:pointer; }
+    .card button { color:#08111a; background:#60A5FA; box-shadow: 0 8px 24px rgba(37,99,235,.45), inset 0 0 0 1px rgba(255,255,255,0.18); }
+    .card select { background:#0f172a; color:#e9f1ff; }
+
+    #hint { position:fixed; bottom:calc(env(safe-area-inset-bottom) + 10px); left:0; right:0; text-align:center; color:#e7f2ff; font-size:13px; opacity:.9; }
   </style>
 </head>
-
-
 <body>
   <div id="wrap"><canvas id="game" aria-label="Pong"></canvas></div>
   <div id="score" aria-live="polite">0 : 0</div>
+
   <div id="overlay">
     <div class="card home">
       <h1 class="title">PONG</h1>
@@ -63,10 +84,12 @@
       </div>
     </div>
   </div>
+
   <div id="hint">Blue court, red kitchen. Pure Pong.</div>
 
   <script>
   'use strict';
+  // ===== DOM =====
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d', { alpha:false });
   const scoreEl = document.getElementById('score');
@@ -78,13 +101,14 @@
   }
   if (document.readyState !== 'loading') bindUI(); else document.addEventListener('DOMContentLoaded', bindUI);
 
+  // ===== Sizing & state =====
   const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
   let W=0, H=0, last=0, running=false, paused=false, noScoreUntil=0;
 
   const paddle = { w: 4*dpr, h: 70*dpr };
   let playerY=0, aiY=0;
   const ball = { x:0, y:0, r:9, vx:0, vy:0, baseSpeed:380 };
-  let speedMul = 0.75; // default slow
+  let speedMul = 0.75; // default Slow
 
   let scoreL=0, scoreR=0;
   let aiSpeed = 300 * dpr;
@@ -117,18 +141,28 @@
     noScoreUntil = performance.now() + 200;
   }
 
-  function updateFromPointer(e){
+  // ===== Input (pointer + touch fallback) =====
+  function updateFromPointerLike(clientY){
     const r = canvas.getBoundingClientRect();
-    const y = (e.clientY - r.top) * dpr;
+    const y = (clientY - r.top) * dpr;
     playerY = clamp(y, paddle.h/2, H - paddle.h/2);
-    e.preventDefault();
   }
+  function onPointer(e){ updateFromPointerLike(e.clientY); e.preventDefault(); }
+  function onTouch(e){ if (!e.touches || !e.touches[0]) return; updateFromPointerLike(e.touches[0].clientY); e.preventDefault(); }
+
   let dragging=false;
-  canvas.addEventListener('pointerdown', (e)=>{ dragging=true; if(!running) start(); updateFromPointer(e); }, {passive:false});
-  canvas.addEventListener('pointermove', (e)=>{ if(!dragging) return; updateFromPointer(e); }, {passive:false});
+  canvas.addEventListener('pointerdown', (e)=>{ dragging=true; if(!running) start(); onPointer(e); }, {passive:false});
+  canvas.addEventListener('pointermove', (e)=>{ if(!dragging) return; onPointer(e); }, {passive:false});
   canvas.addEventListener('pointerup', ()=> dragging=false, {passive:true});
   canvas.addEventListener('pointercancel', ()=> dragging=false, {passive:true});
 
+  // Touch fallback for Android webviews
+  canvas.addEventListener('touchstart', (e)=>{ dragging=true; if(!running) start(); onTouch(e); }, {passive:false});
+  canvas.addEventListener('touchmove',  (e)=>{ if(!dragging) return; onTouch(e); }, {passive:false});
+  canvas.addEventListener('touchend',   ()=> dragging=false, {passive:true});
+  canvas.addEventListener('touchcancel',()=> dragging=false, {passive:true});
+
+  // ===== Rendering =====
   function drawCourt(){
     ctx.fillStyle = css('--courtOuter'); ctx.fillRect(0,0,W,H);
     ctx.fillStyle = css('--courtMain'); ctx.fillRect(0,0,W,H);
@@ -179,14 +213,17 @@
     drawBall();
   }
 
+  // ===== Game step =====
   function step(dt){
     const oldX = ball.x;
     const r = ball.r * dpr;
     ball.x += ball.vx * dt; ball.y += ball.vy * dt;
 
+    // walls
     if (ball.y < r) { ball.y = r; ball.vy *= -1; }
     if (ball.y > H - r) { ball.y = H - r; ball.vy *= -1; }
 
+    // paddles
     const px = 22*dpr, ax = W - (22*dpr + paddle.w);
     const pTop = playerY - paddle.h/2, pBot = playerY + paddle.h/2;
     const aTop = aiY - paddle.h/2, aBot = aiY + paddle.h/2;
@@ -197,6 +234,7 @@
         const t = (ball.y - playerY) / (paddle.h/2);
         ball.vx = Math.abs(ball.vx) * 1.01;
         ball.vy = (ball.vy * 0.5) + (t * 260 * dpr);
+        // clamp runaway speed
         const maxSp = ball.baseSpeed * speedMul * dpr * 1.35;
         const curSp = Math.hypot(ball.vx, ball.vy);
         if (curSp > maxSp) { const m = maxSp / curSp; ball.vx *= m; ball.vy *= m; }
@@ -213,16 +251,19 @@
       }
     }
 
+    // score only when crossing boundary this frame (with short grace)
     if (performance.now() >= noScoreUntil) {
       const leftCross  = (ball.vx < 0) && ((oldX + r) >= 0) && ((ball.x + r) < 0);
       const rightCross = (ball.vx > 0) && ((oldX - r) <= W) && ((ball.x - r) > W);
       if (leftCross) { score('R'); return; }
-      if (rightCross) { score('L'); return; }
+      if (rightCross){ score('L'); return; }
     }
 
+    // AI move
     const target = clamp(ball.y + (Math.random()*2-1)*aiNoise, paddle.h/2, H - paddle.h/2);
     const dy = target - aiY; const maxStep = aiSpeed * dt; aiY += clamp(dy, -maxStep, maxStep);
 
+    // clamp paddles
     playerY = clamp(playerY, paddle.h/2, H - paddle.h/2);
     aiY = clamp(aiY, paddle.h/2, H - paddle.h/2);
 
@@ -258,29 +299,27 @@
   }
   window.startGame = start;
 
+  // ===== Boot =====
   resize(); draw();
   </script>
 
-<!-- Farcaster: hide splash once ready (Android-safe) -->
-<script>
-(function () {
-  function tryReady() {
-    try {
-      if (window.__fc_sdk && window.__fc_sdk.actions && typeof window.__fc_sdk.actions.ready === 'function') { window.__fc_sdk.actions.ready(); return true; }
-      if (window.farcaster && window.farcaster.sdk && window.farcaster.sdk.actions && typeof window.farcaster.sdk.actions.ready === 'function') { window.farcaster.sdk.actions.ready(); return true; }
-      if (window.frame && window.frame.sdk && window.frame.sdk.actions && typeof window.frame.sdk.actions.ready === 'function') { window.frame.sdk.actions.ready(); return true; }
-      if (window.sdk && window.sdk.actions && typeof window.sdk.actions.ready === 'function') { window.sdk.actions.ready(); return true; }
-    } catch (e) {}
-    return false;
-  }
-  if (!tryReady()) {
-    let n = 0;
-    const t = setInterval(() => { if (tryReady() || ++n > 50) clearInterval(t); }, 120); // retry ~6s max
-  }
-})();
-</script>
-
-
-  
+  <!-- Farcaster: hide splash once ready (Android-safe, no imports) -->
+  <script>
+  (function () {
+    function tryReady() {
+      try {
+        if (window.__fc_sdk && window.__fc_sdk.actions && typeof window.__fc_sdk.actions.ready === 'function') { window.__fc_sdk.actions.ready(); return true; }
+        if (window.farcaster && window.farcaster.sdk && window.farcaster.sdk.actions && typeof window.farcaster.sdk.actions.ready === 'function') { window.farcaster.sdk.actions.ready(); return true; }
+        if (window.frame && window.frame.sdk && window.frame.sdk.actions && typeof window.frame.sdk.actions.ready === 'function') { window.frame.sdk.actions.ready(); return true; }
+        if (window.sdk && window.sdk.actions && typeof window.sdk.actions.ready === 'function') { window.sdk.actions.ready(); return true; }
+      } catch (e) {}
+      return false;
+    }
+    if (!tryReady()) {
+      let n = 0;
+      const t = setInterval(() => { if (tryReady() || ++n > 50) clearInterval(t); }, 120); // retry ~6s
+    }
+  })();
+  </script>
 </body>
 </html>
