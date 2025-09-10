@@ -542,5 +542,61 @@
     }
   })();
   </script>
+
+  <!-- Farcaster: ALWAYS call ready() (Android-safe, no optional chaining) -->
+<script>
+(function () {
+  function callReadyFrom(obj){
+    try{
+      if (obj && obj.actions && typeof obj.actions.ready === 'function') {
+        obj.actions.ready();
+        return true;
+      }
+    }catch(e){}
+    return false;
+  }
+  function tryAll(){
+    if (callReadyFrom(window.__fc_sdk)) return true;     // official global
+    if (window.farcaster && callReadyFrom(window.farcaster.sdk)) return true;
+    if (window.frame && callReadyFrom(window.frame.sdk)) return true;
+    if (callReadyFrom(window.sdk)) return true;          // some clients expose this
+    return false;
+  }
+
+  // 1) Try immediately and after first paint
+  if (!tryAll()) {
+    requestAnimationFrame(function(){ requestAnimationFrame(tryAll); });
+  }
+
+  // 2) Keep retrying for a few seconds (Android WebView may inject late)
+  var tries = 0, t = setInterval(function(){
+    if (tryAll() || ++tries > 60) clearInterval(t); // ~6s
+  }, 100);
+
+  // 3) Load SDK from CDN as a fallback and try again
+  function loadUMD(){
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@latest/dist/index.min.js';
+    s.onload = function(){ setTimeout(tryAll, 50); };
+    document.head.appendChild(s);
+  }
+  try {
+    // Some environments support ESM import; if it fails we still load UMD
+    import('https://esm.sh/@farcaster/miniapp-sdk@latest')
+      .then(function(mod){
+        var sdk = mod.sdk || mod.default || mod;
+        if (sdk && sdk.actions && typeof sdk.actions.ready === 'function') {
+          try { sdk.actions.ready(); } catch(e) {}
+          window.__fc_sdk = sdk;
+        }
+      })
+      .catch(function(){ loadUMD(); });
+  } catch(e) { loadUMD(); }
+
+  // 4) Also try on full window load
+  window.addEventListener('load', function(){ setTimeout(tryAll, 50); });
+})();
+</script>
+
 </body>
 </html>
