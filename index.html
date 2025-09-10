@@ -5,60 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Pong • Pickleball Theme</title>
 
-  <!-- Farcaster Mini App embed -->
+  <!-- Farcaster Mini App embed (Vercel domain + root images) -->
   <meta name="fc:miniapp" content='{
-  "version":"1",
-  "imageUrl":"https://pong-miniapp.vercel.app/og.png",
-  "button":{"title":"Play Pong","action":{
-    "type":"launch_frame",
-    "url":"https://pong-miniapp.vercel.app/",
-    "splashImageUrl":"https://pong-miniapp.vercel.app/icon-200.png",
-    "splashBackgroundColor":"#0b1f3a"
-  }}
-}' />
-
+    "version": "1",
+    "imageUrl": "https://pong-miniapp.vercel.app/og.png",
+    "button": {
+      "title": "Play Pong",
+      "action": {
+        "type": "launch_frame",
+        "name": "Pong",
+        "url": "https://pong-miniapp.vercel.app/",
+        "splashImageUrl": "https://pong-miniapp.vercel.app/icon-200.png",
+        "splashBackgroundColor": "#0f172a"
+      }
+    }
+  }' />
+  <!-- Optional fallback for older clients -->
+  <meta name="fc:frame" content='{
+    "version": "1",
+    "imageUrl": "https://pong-miniapp.vercel.app/og.png",
+    "button": {
+      "title": "Play Pong",
+      "action": {
+        "type": "launch_frame",
+        "name": "Pong",
+        "url": "https://pong-miniapp.vercel.app/",
+        "splashImageUrl": "https://pong-miniapp.vercel.app/icon-200.png",
+        "splashBackgroundColor": "#0f172a"
+      }
+    }
+  }' />
 
   <style>
-    :root{
-      --courtOuter:#061429;
-      --courtMain:#1E40AF;
-      --courtKitchen:#ef4444;
-      --courtLine:#F8FAFC;
-      --centerRed:#ef4444;
-      --ballY:#FDE047;
-      --paddleFace:#D4DEE9;
-      --paddleEdge:#425C7A;
-    }
-
-    html, body { margin:0; height:100%; background:var(--courtOuter); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-
-    #wrap { position:fixed; inset:0; z-index:0; }
-    canvas { display:block; width:100%; height:100%; touch-action:none; }
-
-    #score { position:fixed; top:calc(env(safe-area-inset-top) + 10px); left:50%; transform:translateX(-50%);
-      color:#fff; font-weight:1000; letter-spacing:1.2px; font-size:28px; padding:8px 14px; border-radius:16px;
-      background: linear-gradient(135deg, rgba(255,255,255,0.14), rgba(255,255,255,0.07));
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16), 0 14px 40px rgba(0,0,0,0.45);
-    }
-    #score.bump { animation: bump .18s ease; }
-    @keyframes bump { 50% { transform: translateX(-50%) scale(1.08);} }
-
-    #overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:2; }
-    #overlay.hidden { display:none; }
-    .card { background: rgba(12,18,32,0.86);
-      border:1px solid rgba(255,255,255,0.14); color:#e9f1ff; padding:26px 22px; border-radius:18px; text-align:center;
-      box-shadow: 0 28px 90px rgba(0,0,0,0.55); max-width:560px; margin:24px; }
-    .title { margin:6px 0 2px; font-size:32px; font-weight:1000; color:#fff; }
-    .brand { margin-top:0; font-size:14px; letter-spacing:0.6px; opacity:0.9; }
-    .sub { margin-top:8px; opacity:0.85; }
-    .actions { margin-top:14px; display:flex; justify-content:center; gap:12px; }
-    .card button, .card select { padding:12px 16px; border-radius:14px; border:1px solid rgba(255,255,255,0.18); font-weight:900; font-size:15px; cursor:pointer; }
-    .card button { color:#08111a; background:#60A5FA; box-shadow: 0 8px 24px rgba(37,99,235,.45), inset 0 0 0 1px rgba(255,255,255,0.18); }
-    .card select { background:#0f172a; color:#e9f1ff; }
-
-    #hint { position:fixed; bottom:calc(env(safe-area-inset-bottom) + 10px); left:0; right:0; text-align:center; color:#e7f2ff; font-size:13px; opacity:.9; }
+    /* keep your existing CSS here (unchanged) */
   </style>
 </head>
+
 
 <body>
   <div id="wrap"><canvas id="game" aria-label="Pong"></canvas></div>
@@ -279,50 +261,25 @@
   resize(); draw();
   </script>
 
- <!-- Farcaster Android-safe: hide splash no matter how the SDK is exposed -->
+<!-- Farcaster: hide splash once ready (Android-safe) -->
 <script>
 (function () {
-  // 1) Try any injected globals Farcaster clients use
-  function tryAllGlobals() {
+  function tryReady() {
     try {
-      // official
-      if (window.__fc_sdk?.actions?.ready) { window.__fc_sdk.actions.ready(); return true; }
-      // some hosts expose under "farcaster" or "frame"
-      if (window.farcaster?.sdk?.actions?.ready) { window.farcaster.sdk.actions.ready(); return true; }
-      if (window.frame?.sdk?.actions?.ready) { window.frame.sdk.actions.ready(); return true; }
-      // just in case:
-      if (window.sdk?.actions?.ready) { window.sdk.actions.ready(); return true; }
+      if (window.__fc_sdk && window.__fc_sdk.actions && typeof window.__fc_sdk.actions.ready === 'function') { window.__fc_sdk.actions.ready(); return true; }
+      if (window.farcaster && window.farcaster.sdk && window.farcaster.sdk.actions && typeof window.farcaster.sdk.actions.ready === 'function') { window.farcaster.sdk.actions.ready(); return true; }
+      if (window.frame && window.frame.sdk && window.frame.sdk.actions && typeof window.frame.sdk.actions.ready === 'function') { window.frame.sdk.actions.ready(); return true; }
+      if (window.sdk && window.sdk.actions && typeof window.sdk.actions.ready === 'function') { window.sdk.actions.ready(); return true; }
     } catch (e) {}
     return false;
   }
-
-  // 2) If not injected yet, try importing the SDK (ESM)
-  async function importAndReady() {
-    try {
-      const mod = await import('https://esm.sh/@farcaster/miniapp-sdk@latest');
-      const sdk = mod.sdk || mod.default || mod;
-      if (sdk?.actions?.ready) await sdk.actions.ready();
-    } catch (e) {
-      // 3) Fallback: load the UMD bundle, then try the common globals again
-      try {
-        var s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk/dist/index.min.js';
-        s.onload = () => setTimeout(tryAllGlobals, 50);
-        document.head.appendChild(s);
-      } catch (_) {}
-    }
-  }
-
-  // run now + retry a few times (Android WebViews can inject slightly late)
-  if (!tryAllGlobals()) {
-    importAndReady();
-    let tries = 0;
-    const t = setInterval(() => {
-      if (tryAllGlobals() || ++tries > 40) clearInterval(t);
-    }, 120);
+  if (!tryReady()) {
+    let n = 0;
+    const t = setInterval(() => { if (tryReady() || ++n > 50) clearInterval(t); }, 120); // retry ~6s max
   }
 })();
 </script>
+
 
   
 </body>
