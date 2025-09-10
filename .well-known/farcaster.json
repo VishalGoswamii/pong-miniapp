@@ -17,4 +17,14 @@
     "primaryCategory": "games",
     "noindex": false
   }
+  {
+  "name": "pong-miniapp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@vercel/kv": "latest"
+  }
+}
+
 }
