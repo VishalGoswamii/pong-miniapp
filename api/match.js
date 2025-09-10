@@ -1,4 +1,3 @@
-// Simple matchmaker: pairs two players, otherwise parks one waiting for up to 2 minutes.
 import { kv } from '@vercel/kv';
 
 export default async function handler(req, res) {
@@ -14,22 +13,14 @@ export default async function handler(req, res) {
   }), JSON.parse(body)); } catch (_) { body = null; }
   if (!body || !body.peerId) return res.status(400).json({ error: 'peerId required' });
 
-  const self = {
-    peerId: body.peerId,
-    user: body.user || null, // { fid, username, displayName, pfpUrl }
-    ts: Date.now()
-  };
-
+  const self = { peerId: body.peerId, user: body.user || null, ts: Date.now() };
   const key = 'pong:waiting';
 
-  // If someone is waiting, pair with them; else put self as waiting (expires in 120s)
   const waiting = await kv.get(key);
-
   if (waiting && waiting.peerId && waiting.peerId !== self.peerId) {
     await kv.del(key);
     return res.status(200).json({ opponentPeerId: waiting.peerId, opponentUser: waiting.user || null });
-  }
-
+    }
   await kv.set(key, self, { ex: 120 });
   return res.status(200).json({ wait: true });
 }
