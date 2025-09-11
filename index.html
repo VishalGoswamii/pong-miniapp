@@ -31,20 +31,12 @@
   --centerRed:#ef4444; --ballY:#FDE047; --paddleFace:#D4DEE9; --paddleEdge:#425C7A;
 
   /* Home (Minimal Pixel) */
-  --bg-deep:#0b0f1a;        /* deep midnight */
-  --bg-grad1:#0e1324;
-  --bg-grad2:#0b1020;
-  --card-bg:#0f1324cc;
-  --card-bd:rgba(255,255,255,.12);
-  --text-hi:#e9f1ff;
-  --text-lo:#a8b3cc;
-  --accent:#6ea8ff;
-  --accent-2:#98ffba;
+  --bg-deep:#0b0f1a; --bg-grad1:#0e1324; --bg-grad2:#0b1020;
+  --card-bg:#0f1324cc; --card-bd:rgba(255,255,255,.12);
+  --text-hi:#e9f1ff; --text-lo:#a8b3cc;
   --btn-border:rgba(255,255,255,.18);
-  --btn-grad-top:#121b34;
-  --btn-grad-bot:#0b1328;
-  --btn-pr-top:#1a9cff;
-  --btn-pr-bot:#1869ff;
+  --btn-grad-top:#121b34; --btn-grad-bot:#0b1328;
+  --btn-pr-top:#1a9cff; --btn-pr-bot:#1869ff;
 }
 
 *{box-sizing:border-box}
@@ -55,7 +47,7 @@ html,body{margin:0;height:100%;background:var(--bg-deep);color:var(--text-hi);
 .page{display:none;min-height:100dvh}
 .page.active{display:block}
 
-/* ===== HOME: Minimal Pixel Title ===== */
+/* ===== HOME ===== */
 #page-home{
   position:relative; display:flex; align-items:center; justify-content:center; padding:20px;
   background:
@@ -63,7 +55,7 @@ html,body{margin:0;height:100%;background:var(--bg-deep);color:var(--text-hi);
     linear-gradient(180deg, var(--bg-deep), var(--bg-deep));
   overflow:hidden;
 }
-#page-home::before{ /* subtle stars */
+#page-home::before{
   content:""; position:absolute; inset:0; pointer-events:none; opacity:.18;
   background:
     radial-gradient(2px 2px at 10% 20%, #ffffff 40%, transparent 41%),
@@ -82,42 +74,22 @@ html,body{margin:0;height:100%;background:var(--bg-deep);color:var(--text-hi);
   box-shadow:0 30px 90px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.06);
   padding:18px 16px 16px;
 }
-
-/* Pixel banner (no external font) */
-.pixel-banner{
-  display:flex; flex-direction:column; align-items:center; gap:10px; padding:8px 8px 14px;
-}
+.pixel-banner{ display:flex; flex-direction:column; align-items:center; gap:10px; padding:8px 8px 14px }
 .pixel-badge{
   display:inline-block; padding:10px 16px; border-radius:12px;
-  background:
-    linear-gradient(180deg, #0f162c, #0b1222);
+  background:linear-gradient(180deg, #0f162c, #0b1222);
   border:1px solid rgba(255,255,255,.14);
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.05), 0 10px 28px rgba(0,0,0,.45);
 }
 .pixel-logo{
   font-weight:1000; letter-spacing:2px; font-size:26px; color:#e7f3ff;
-  /* “pixel” edges via hard shadows */
-  text-shadow:
-    0 1px 0 #000,
-    -1px 0 0 #000, 1px 0 0 #000,
-    0 -1px 0 #000,
-    2px 2px 0 #000,
-    0 0 8px rgba(110,168,255,.35);
+  text-shadow:0 1px 0 #000, -1px 0 0 #000, 1px 0 0 #000, 0 -1px 0 #000, 2px 2px 0 #000, 0 0 8px rgba(110,168,255,.35);
 }
 .subtitle{ margin-top:2px; font-size:12px; color:var(--text-lo); text-align:center }
-
-/* Profile + Best */
-.profile{
-  margin-top:2px; display:flex; align-items:center; justify-content:center; gap:10px;
-}
-.profile img{
-  width:36px; height:36px; border-radius:999px; object-fit:cover;
-  background:#0f172a; border:1px solid rgba(255,255,255,.18);
-}
+.profile{ margin-top:2px; display:flex; align-items:center; justify-content:center; gap:10px }
+.profile img{ width:36px; height:36px; border-radius:999px; object-fit:cover; background:#0f172a; border:1px solid rgba(255,255,255,.18) }
 .name{ font-weight:900; font-size:14px }
 .best{ margin-top:4px; text-align:center; font-size:12px; color:var(--text-lo) }
-
-/* Actions: vertical stack */
 .actions{ display:grid; grid-template-columns:1fr; gap:12px; margin:16px 0 4px }
 .btn{
   appearance:none; border-radius:14px; padding:14px 16px; font-weight:1000; font-size:16px; cursor:pointer;
@@ -133,11 +105,9 @@ html,body{margin:0;height:100%;background:var(--bg-deep);color:var(--text-hi);
   color:#06111d; text-shadow:0 1px 0 rgba(255,255,255,.35);
   box-shadow:0 14px 40px rgba(26,156,255,.45), inset 0 0 0 1px rgba(255,255,255,.20);
 }
-
-/* small muted line */
 .hint{ margin-top:6px; text-align:center; color:var(--text-lo); font-size:12px }
 
-/* ===== GAME PAGE ===== */
+/* ===== GAME ===== */
 #page-game{position:fixed; inset:0; background:var(--courtOuter)}
 #wrap{position:absolute; inset:0; z-index:0}
 canvas{display:block; width:100%; height:100%; touch-action:none}
@@ -156,6 +126,21 @@ canvas{display:block; width:100%; height:100%; touch-action:none}
 .pb .name{font-weight:800;font-size:13px}
 .pb .tag{font-size:12px;opacity:.8}
 #hint{position:absolute; bottom:calc(env(safe-area-inset-bottom) + 10px); left:0; right:0; text-align:center; color:#e7f2ff; font-size:13px; opacity:.9}
+
+/* COUNTDOWN overlay */
+#countdown{
+  position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:none;
+  font-weight:1000; font-size:80px; color:#fff; text-shadow:0 6px 20px rgba(0,0,0,.45);
+}
+#countdown.show{ display:flex; animation:fadeIn .12s ease }
+.count{
+  background:linear-gradient(180deg, #ffffff, #e9efff);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  filter: drop-shadow(0 4px 16px rgba(110,168,255,.45));
+  animation:pop .6s ease;
+}
+@keyframes pop{ 0%{transform:scale(.6); opacity:0;} 20%{opacity:1} 60%{transform:scale(1.12);} 100%{transform:scale(1);} }
+@keyframes fadeIn{ from{opacity:0} to{opacity:1} }
 
 /* ===== RESULT / LEADERBOARD ===== */
 #page-result, #page-leaderboard{
@@ -185,7 +170,7 @@ canvas{display:block; width:100%; height:100%; touch-action:none}
 </head>
 <body>
 
-<!-- ===== HOME (Minimal Pixel) ===== -->
+<!-- ===== HOME ===== -->
 <section id="page-home" class="page active" role="main">
   <div class="home-wrap">
     <div class="card">
@@ -220,7 +205,8 @@ canvas{display:block; width:100%; height:100%; touch-action:none}
       <div class="pb"><img id="p1img" alt=""><div><div class="name" id="p1name">You</div><div class="tag">P1</div></div></div>
       <div class="pb"><img id="p2img" alt=""><div><div class="name" id="p2name">CPU</div><div class="tag" id="p2tag">AI</div></div></div>
     </div>
-    <div id="hint">Points appear only if you win.</div>
+    <div id="hint">Round starts after 3-2-1.</div>
+    <div id="countdown" aria-live="assertive"><div class="count">3</div></div>
   </div>
 </section>
 
@@ -252,6 +238,18 @@ canvas{display:block; width:100%; height:100%; touch-action:none}
 <script>
 'use strict';
 
+/* ========= sdk.actions.ready() helper (called on boot & on page switches) ========= */
+function ensureReady(){
+  function callReadyFrom(obj){ try{ if(obj && obj.actions && typeof obj.actions.ready==='function'){ obj.actions.ready(); return true; } }catch(e){} return false; }
+  if (callReadyFrom(window.__fc_sdk)) return true;
+  if (window.farcaster && callReadyFrom(window.farcaster.sdk)) return true;
+  if (window.frame && callReadyFrom(window.frame.sdk)) return true;
+  if (callReadyFrom(window.sdk)) return true;
+  // retry briefly for mini-app environments that hydrate late
+  let tries=0; const t=setInterval(()=>{ if (tries++>30 || ensureReady()) clearInterval(t); },100);
+  return false;
+}
+
 /* ========= Simple Router ========= */
 const PAGES = {
   home: document.getElementById('page-home'),
@@ -263,6 +261,7 @@ function go(name){
   Object.values(PAGES).forEach(p=>p.classList.remove('active'));
   PAGES[name].classList.add('active');
   if (name !== 'game') pauseGame();
+  ensureReady(); // call on every navigation
 }
 
 /* ========= DOM ========= */
@@ -286,6 +285,7 @@ const bestHome = document.getElementById('bestHome');
 const resTitle = document.getElementById('resTitle');
 const resPts = document.getElementById('resPts');
 const lbList = document.getElementById('lbList');
+const countdownEl = document.getElementById('countdown');
 
 const toast = document.getElementById('toast');
 const vib = (ms)=>{ try{ if(navigator.vibrate) navigator.vibrate(ms);}catch(e){} };
@@ -343,6 +343,9 @@ let flatTimer=0;
 let points=0;
 const PTS_HIT=5, PTS_GOAL=100, PTS_WIN=250;
 
+// serve state for countdown
+let serving=false; let serveStore=null; let cdTimer=null;
+
 /* ========= Resize ========= */
 function resize(){
   const w = innerWidth, h = innerHeight;
@@ -362,14 +365,46 @@ addEventListener('resize', ()=>{ if (PAGES.game.classList.contains('active')) re
 const clamp=(v,min,max)=>v<min?min:v>max?max:v;
 const css=(n)=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
+/* Start-of-round with 3-2-1 */
+function startCountdown(onDone){
+  clearInterval(cdTimer);
+  countdownEl.classList.add('show');
+  const seq=[3,2,1];
+  let i=0;
+  const tick=()=>{
+    if (i>=seq.length){
+      countdownEl.classList.remove('show');
+      countdownEl.innerHTML='';
+      onDone&&onDone();
+      return;
+    }
+    countdownEl.innerHTML = `<div class="count">${seq[i++]}</div>`;
+  };
+  tick();
+  cdTimer=setInterval(tick, 600); // 0.6s per number
+}
+
 function resetBall(dir=1){
+  // center everything each round
   ball.x=W/2; ball.y=H/2;
+  playerY=H/2; oppY=H/2;
+
+  // compute serve velocity but hold it
   const angle=(Math.random()*0.5 - 0.25);
   const sp = ball.baseSpeed * dpr;
-  ball.vx=Math.cos(angle)*sp*dir; ball.vy=Math.sin(angle)*sp;
-  playerY=H/2; oppY=H/2;
-  noScoreUntil=performance.now()+200;
+  serveStore = { vx: Math.cos(angle)*sp*dir, vy: Math.sin(angle)*sp };
+  ball.vx=0; ball.vy=0; serving=true;
+
+  // grace until after countdown
+  noScoreUntil=performance.now()+4000;
   trail.length=0;
+
+  // show 3-2-1, then release the ball
+  startCountdown(()=>{
+    serving=false;
+    ball.vx=serveStore.vx; ball.vy=serveStore.vy;
+    noScoreUntil=performance.now()+350;
+  });
 }
 
 /* ========= Input ========= */
@@ -436,7 +471,7 @@ function drawBall(){
   ctx.fillStyle=css('--ballY'); ctx.beginPath(); ctx.arc(ball.x, ball.y, rr, 0, Math.PI*2); ctx.fill();
   ctx.lineWidth=1.2*dpr; ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.arc(ball.x, ball.y, rr, 0, Math.PI*2); ctx.stroke();
 }
-function draw(){ // paddles & ball
+function draw(){
   drawCourt();
   const px=22*dpr, ax=W-(22*dpr + paddle.w);
   drawPaddle(px, playerY, paddle.w, paddle.h);
@@ -447,6 +482,7 @@ function draw(){ // paddles & ball
 /* ========= Step ========= */
 function step(dt){
   const oldX=ball.x, r=ball.r*dpr;
+
   ball.x += ball.vx*dt; ball.y += ball.vy*dt;
 
   trail.push({x:ball.x,y:ball.y}); if (trail.length>10) trail.shift();
@@ -460,6 +496,7 @@ function step(dt){
   const pTop=(playerY - paddle.h/2) - playerHitboxBonus, pBot=(playerY + paddle.h/2) + playerHitboxBonus;
   const aTop=(oppY    - paddle.h/2) + aiHitboxTight,     aBot=(oppY    + paddle.h/2) - aiHitboxTight;
 
+  // paddle collisions only when ball is moving horizontally (not during countdown)
   if (ball.vx < 0){
     if (ball.x - r <= px + paddle.w && ball.x - r >= px && ball.y >= pTop && ball.y <= pBot){
       ball.x = px + paddle.w + r;
@@ -471,7 +508,7 @@ function step(dt){
       points += PTS_HIT;
       vib(8);
     }
-  } else {
+  } else if (ball.vx > 0){
     if (ball.x + r >= ax && ball.x + r <= ax + paddle.w && ball.y >= aTop && ball.y <= aBot){
       ball.x = ax - r;
       const t=(ball.y - oppY)/(paddle.h/2);
@@ -482,13 +519,15 @@ function step(dt){
     }
   }
 
-  if (performance.now() >= noScoreUntil){
+  // scoring after grace
+  if (!serving && performance.now() >= noScoreUntil){
     const leftOut  = (ball.vx < 0) && ((oldX + r) >= 0) && ((ball.x + r) < 0);
     const rightOut = (ball.vx > 0) && ((oldX - r) <= W) && ((ball.x - r) > W);
     if (leftOut){ score('R'); return; }
     if (rightOut){ score('L'); return; }
   }
 
+  // AI
   if (aiOn){
     aiTimer += dt;
     if (aiTimer >= aiReact){
@@ -517,6 +556,7 @@ function step(dt){
   playerY = clamp(playerY, paddle.h/2, H - paddle.h/2);
   draw();
 
+  // net sync (host)
   if (NETMODE==='online-host' && conn && conn.open){
     const now = performance.now();
     if (now - netLastSend > 33){
@@ -569,7 +609,9 @@ function score(side){
   }
 
   vib(12);
-  resetBall( (scoreL < scoreR) ? -1 : 1 ); // serve to trailing side
+  // fair serve to trailing side — with countdown
+  const serveDir = (scoreL < scoreR) ? -1 : 1;
+  resetBall(serveDir);
 }
 
 /* ========= Loop ========= */
@@ -585,7 +627,8 @@ function startGame(){
   scoreL=0; scoreR=0; points=0;
   playerY=H/2; oppY=H/2; ball.r=10; flatTimer=0;
   aiSpeed=300*dpr; aiReact=0.09;
-  resize(); resetBall(-1);
+  resize();
+  resetBall(-1); // start with countdown
   paused=false; running=true; last=0;
   if (rafId) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(loop);
@@ -689,15 +732,12 @@ function init(){
   const setBadge=(imgEl,nameEl,obj,fb)=>{ if(obj){ nameEl.textContent=obj.displayName||obj.username||('fid '+obj.fid); if(obj.pfpUrl){ imgEl.src=obj.pfpUrl; imgEl.alt=nameEl.textContent; } } else { nameEl.textContent=fb||'You'; } };
   setBadge(p1img, p1name, me, 'You'); p2name.textContent='CPU'; p2tag.textContent='AI';
   resize(); draw();
+  ensureReady(); // call at boot
 }
 init();
 
-/* ========= Farcaster ready() ========= */
-(function(){
-  function callReadyFrom(obj){ try{ if(obj && obj.actions && typeof obj.actions.ready==='function'){ obj.actions.ready(); return true; } }catch(e){} return false; }
-  function tryAll(){ if (callReadyFrom(window.__fc_sdk)) return true; if (window.farcaster && callReadyFrom(window.farcaster.sdk)) return true; if (window.frame && callReadyFrom(window.frame.sdk)) return true; if (callReadyFrom(window.sdk)) return true; return false; }
-  if (!tryAll()){ requestAnimationFrame(()=>requestAnimationFrame(tryAll)); let n=0,t=setInterval(()=>{ if (tryAll() || ++n>60) clearInterval(t); },100); }
-})();
+/* ========= Also try Farcaster ready ASAP for environments that expose global sdk late ========= */
+(function(){ ensureReady(); })();
 </script>
 </body>
 </html>
