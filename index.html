@@ -21,7 +21,7 @@
   }
 }' />
 
-<!-- (Optional) PeerJS: kept only so Online Classic still works if you wired /api/match -->
+<!-- (Optional) PeerJS for Online Find Match if you already wired /api/match -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js" defer></script>
 
 <style>
@@ -33,39 +33,47 @@ html,body{margin:0;height:100%;background:var(--courtOuter);font-family:ui-sans-
 #wrap{position:fixed;inset:0;z-index:0}
 canvas{display:block;width:100%;height:100%;touch-action:none}
 
-/* HUD */
+/* HUD (score only — no points during play) */
 #score{position:fixed;top:calc(env(safe-area-inset-top) + 10px);left:50%;transform:translateX(-50%);
   color:#fff;font-weight:1000;letter-spacing:1.2px;font-size:26px;padding:8px 14px;border-radius:16px;
   background:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,.07));
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),0 14px 40px rgba(0,0,0,.45)}
 #score.bump{animation:bump .18s ease}
 @keyframes bump{50%{transform:translateX(-50%) scale(1.08)}}
-#hs{position:fixed;top:calc(env(safe-area-inset-top) + 10px);right:10px;color:#fff;
-  font-weight:900;font-size:12px;padding:6px 10px;border-radius:12px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.15)}
 
 /* Overlay */
 #overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:2}
 #overlay.hidden{display:none}
-.card{background:rgba(12,18,32,.86);border:1px solid rgba(255,255,255,.14);color:#e9f1ff;padding:24px 18px;border-radius:18px;text-align:center;
+.card{background:rgba(12,18,32,.86);border:1px solid rgba(255,255,255,.14);color:#e9f1ff;padding:22px 18px;border-radius:18px;text-align:center;
   box-shadow:0 28px 90px rgba(0,0,0,.55);max-width:680px;margin:20px}
 .title{margin:6px 0 2px;font-size:30px;font-weight:1000;color:#fff}
-.sub{margin-top:6px;opacity:.85;font-size:14px}
-.mode-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:10px}
-.mode{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid rgba(255,255,255,.18);border-radius:14px;background:rgba(255,255,255,.05)}
+.sub{margin-top:4px;opacity:.85;font-size:14px}
+
+/* Home layout */
+.profile{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:4px}
+.profile img{width:36px;height:36px;border-radius:999px;object-fit:cover;background:#0f172a;border:1px solid rgba(255,255,255,.16)}
+.logo{width:76px;height:76px;border-radius:18px;background:linear-gradient(135deg,#60a5fa33,#94a3b833);
+  border:1px solid rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;margin:12px auto 8px;color:#dce8ff;font-weight:1000}
+.best{margin-top:4px;font-size:12px;opacity:.8}
+
+.mode-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px}
+.mode{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid rgba(255,255,255,.18);
+  border-radius:14px;background:rgba(255,255,255,.05)}
 .mode h3{margin:0;font-size:18px}
 .mode p{margin:0;font-size:13px;opacity:.9}
 button{padding:12px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.18);font-weight:900;font-size:15px;cursor:pointer}
 .primary{color:#08111a;background:#60A5FA;box-shadow:0 8px 24px rgba(37,99,235,.45),inset 0 0 0 1px rgba(255,255,255,.18)}
+.ghost{color:#e9f1ff;background:transparent}
 
+/* Leaderboard */
+.lb{margin-top:10px;text-align:left}
+.row{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);margin-bottom:8px}
+.row img{width:28px;height:28px;border-radius:999px;object-fit:cover;background:#0f172a}
+.row .name{font-weight:800}
+.row .pts{margin-left:auto;font-weight:900}
+
+.actions{display:flex;gap:10px;justify-content:center;margin-top:10px}
 #hint{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 10px);left:0;right:0;text-align:center;color:#e7f2ff;font-size:13px;opacity:.9}
-
-/* Player badges (pfp/name) */
-#players{position:fixed;top:calc(env(safe-area-inset-top) + 54px);left:0;right:0;display:flex;justify-content:space-between;padding:0 10px;pointer-events:none}
-.pb{display:flex;align-items:center;gap:8px;background:rgba(12,18,32,.6);border:1px solid rgba(255,255,255,.14);
-  color:#eaf3ff;padding:6px 10px;border-radius:999px;min-width:120px}
-.pb img{width:24px;height:24px;border-radius:999px;object-fit:cover;background:#0f172a}
-.pb .name{font-weight:800;font-size:13px}
-.pb .tag{font-size:12px;opacity:.8}
 
 /* Toast */
 #toast{position:fixed;top:calc(env(safe-area-inset-top) + 10px);right:10px;color:#fff;background:rgba(0,0,0,.6);padding:8px 10px;border-radius:10px;font-size:12px;display:none}
@@ -74,75 +82,127 @@ button{padding:12px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.1
 </head>
 <body>
   <div id="wrap"><canvas id="game" aria-label="Pong"></canvas></div>
-  <div id="score" aria-live="polite">0 : 0 • 0 pts</div>
-  <div id="hs">HS 0</div>
+  <div id="score" aria-live="polite">0 : 0</div>
 
-  <div id="players">
-    <div class="pb"><img id="p1img" alt=""><div><div class="name" id="p1name">You</div><div class="tag">P1</div></div></div>
-    <div class="pb"><img id="p2img" alt=""><div><div class="name" id="p2name">CPU</div><div class="tag" id="p2tag">AI</div></div></div>
-  </div>
-
+  <!-- HOME -->
   <div id="overlay">
-    <div class="card home">
-      <h1 class="title">PONG</h1>
-      <p class="sub">Classic rally • Pickleball blue court</p>
+    <div class="card" id="homeCard">
+      <div class="logo">PONG</div>
+      <h1 class="title">Classic Pong</h1>
+      <div class="profile">
+        <img id="pfp" alt="">
+        <div>
+          <div id="uname" style="font-weight:900">Guest</div>
+          <div id="best" class="best">Best: 0 pts</div>
+        </div>
+      </div>
 
       <div class="mode-grid">
         <div class="mode">
           <div>
-            <h3>Single Player (vs AI)</h3>
-            <p>Drag anywhere to move • Win by 2</p>
+            <h3>Single Player</h3>
+            <p>Drag to move • Win by 2</p>
           </div>
           <button class="primary" id="btnSingle">Play</button>
         </div>
-
         <div class="mode">
           <div>
-            <h3>Online 1v1 (Classic)</h3>
-            <p>Quick match (requires your match server)</p>
+            <h3>Multiplayer (Find Match)</h3>
+            <p>Quick match (needs your match server)</p>
           </div>
           <button class="primary" id="btnFind">Find Match</button>
         </div>
+        <div class="mode">
+          <div>
+            <h3>Leaderboard</h3>
+            <p>Highest points (by FID)</p>
+          </div>
+          <button class="primary" id="btnLB">Open</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULT (shown only when you win) -->
+    <div class="card" id="resultCard" style="display:none">
+      <h1 class="title" id="resultTitle">You win!</h1>
+      <p class="sub" id="resultSub">Points: <b id="resultPts">0</b></p>
+      <div class="actions">
+        <button class="primary" id="btnAgain">Play Again</button>
+        <button class="ghost" id="btnHome">Home</button>
+        <button class="ghost" id="btnShare">Share</button>
+      </div>
+    </div>
+
+    <!-- LEADERBOARD -->
+    <div class="card" id="lbCard" style="display:none">
+      <h1 class="title">Leaderboard</h1>
+      <p class="sub">Top scores (highest first)</p>
+      <div id="lbList" class="lb"></div>
+      <div class="actions">
+        <button class="ghost" id="btnLBBack">Back</button>
       </div>
     </div>
   </div>
 
-  <div id="hint">Swipe/drag to move. Points & High Score are saved on your device.</div>
+  <div id="hint">Swipe/drag to move. Points appear only if you win.</div>
   <div id="toast"></div>
 
 <script>
 'use strict';
-/* ========== DOM ========== */
+/* ===== DOM ===== */
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d', { alpha:false }) || canvas.getContext('2d');
 const scoreEl = document.getElementById('score');
-const hsEl = document.getElementById('hs');
 const overlay = document.getElementById('overlay');
+const homeCard = document.getElementById('homeCard');
+const resultCard = document.getElementById('resultCard');
+const lbCard = document.getElementById('lbCard');
+const resultTitle = document.getElementById('resultTitle');
+const resultPtsEl = document.getElementById('resultPts');
+const lbList = document.getElementById('lbList');
+
 const btnSingle = document.getElementById('btnSingle');
 const btnFind = document.getElementById('btnFind');
-const p1img = document.getElementById('p1img'), p1name = document.getElementById('p1name');
-const p2img = document.getElementById('p2img'), p2name = document.getElementById('p2name'), p2tag = document.getElementById('p2tag');
+const btnLB = document.getElementById('btnLB');
+const btnLBBack = document.getElementById('btnLBBack');
+const btnAgain = document.getElementById('btnAgain');
+const btnHome = document.getElementById('btnHome');
+const btnShare = document.getElementById('btnShare');
+
+const pfp = document.getElementById('pfp');
+const uname = document.getElementById('uname');
+const bestEl = document.getElementById('best');
+
 const toast = document.getElementById('toast');
 const vib = (ms)=>{ try{ if(navigator.vibrate) navigator.vibrate(ms);}catch(e){} };
-function showToast(t){ toast.textContent=t; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 2200); }
+const showToast=(t)=>{ toast.textContent=t; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 2200); };
 
-/* Farcaster user for badge */
+/* ===== Farcaster user ===== */
 function readMiniUser(){
   try{
-    const c = (window.__fc_sdk && window.__fc_sdk.context) || (window.farcaster && window.farcaster.sdk && window.farcaster.sdk.context) ||
-              (window.frame && window.frame.sdk && window.frame.sdk.context) || (window.sdk && window.sdk.context);
-    return c && c.user || null;
-  }catch(e){ return null; }
+    const c1 = window.__fc_sdk && window.__fc_sdk.context;
+    const c2 = window.farcaster && window.farcaster.sdk && window.farcaster.sdk.context;
+    const c3 = window.frame && window.frame.sdk && window.frame.sdk.context;
+    const c4 = window.sdk && window.sdk.context;
+    const cx = c1 || c2 || c3 || c4;
+    if (cx && cx.user) return cx.user; // { fid, username, displayName, pfpUrl }
+  }catch(e){}
+  return null;
 }
-function setPlayerBadge(elImg, elName, obj, fallback){
-  if (obj){ elName.textContent = obj.displayName || obj.username || ('fid ' + obj.fid); if (obj.pfpUrl){ elImg.src=obj.pfpUrl; elImg.alt=elName.textContent; } else { elImg.removeAttribute('src'); } }
-  else { elName.textContent = fallback || 'Guest'; elImg.removeAttribute('src'); }
+const me = readMiniUser();
+if (me){
+  uname.textContent = me.displayName || me.username || ('fid ' + me.fid);
+  if (me.pfpUrl){ pfp.src = me.pfpUrl; pfp.alt = uname.textContent; }
 }
-const me = readMiniUser(); setPlayerBadge(p1img, p1name, me, 'You');
 
-/* ========== Game State ========== */
+/* ===== Persistent best ===== */
+let best = Number(localStorage.getItem('pong_best') || 0);
+bestEl.textContent = `Best: ${best} pts`;
+
+/* ===== Game State ===== */
 const dpr = Math.max(1, Math.min(2, window.devicePixelRatio||1));
-let W=0, H=0, last=0, running=false, paused=false, noScoreUntil=0;
+let W=0, H=0, last=0, running=false, paused=false, noScoreUntil=0, NETMODE='home';
+let peer=null, conn=null, isHost=false, netLastSend=0;
 
 const paddle = { w: 4*dpr, h: 70*dpr };
 let playerY=0, oppY=0;
@@ -150,75 +210,57 @@ let playerY=0, oppY=0;
 const ball = { x:0, y:0, r:10, vx:0, vy:0, baseSpeed:360 };
 
 let scoreL=0, scoreR=0;
-const POINTS_TO_WIN = 11; // win by 2 below
+const POINTS_TO_WIN = 11; // win by 2
 
-// AI tuning (kept human-friendly)
-let aiOn = true, aiSpeed = 310*dpr, aiReact = 0.085, aiTimer = 0, aiAimY = 0, aiNoise = 28*dpr;
+// AI
+let aiOn=true, aiSpeed=310*dpr, aiReact=0.085, aiTimer=0, aiAimY=0, aiNoise=28*dpr;
 
-// Player-friendly tweaks
-const playerHitboxBonus = 10*dpr;
-const aiHitboxTight = 8*dpr;
+// Friendly bias
+const playerHitboxBonus=10*dpr, aiHitboxTight=8*dpr;
 
 // Trail
-const trail = [];
+const trail=[];
 
-// Spin swipe
+// Spin
 let lastPointerY=null, pointerVy=0;
 
 // Anti-stall
 let flatTimer=0;
 
-// ===== Points & Highscore =====
-let points = 0;
-let highscore = Number(localStorage.getItem('pong_highscore') || 0);
-// Tunables:
-const PTS_HIT = 5;
-const PTS_GOAL = 100;
-const PTS_WIN = 250;
+// Points (hidden during play)
+let points=0;
+const PTS_HIT=5, PTS_GOAL=100, PTS_WIN=250;
 
-function updateHUD(){
-  scoreEl.textContent = `${scoreL} : ${scoreR} • ${points} pts`;
-  hsEl.textContent = `HS ${highscore}`;
-}
-function maybeUpdateHighScore(){
-  if (points > highscore){
-    highscore = points;
-    localStorage.setItem('pong_highscore', String(highscore));
-    showToast('✨ New High Score!');
-    updateHUD();
-  }
-}
-
-/* ========== Resize/init ========== */
+/* ===== Resize ===== */
 function resize(){
   const w = innerWidth, h = innerHeight;
-  canvas.width = Math.floor(w * dpr);
-  canvas.height = Math.floor(h * dpr);
-  canvas.style.width = w + 'px';
-  canvas.style.height = h + 'px';
+  canvas.width = Math.floor(w*dpr);
+  canvas.height = Math.floor(h*dpr);
+  canvas.style.width = w+'px';
+  canvas.style.height = h+'px';
   W = canvas.width; H = canvas.height;
-  paddle.h = Math.max(56*dpr, Math.min(H*0.16, 86*dpr)) * 0.90;
+  paddle.h = Math.max(56*dpr, Math.min(H*0.16, 86*dpr))*0.90;
   if (!running && last===0){ playerY=H/2; oppY=H/2; ball.x=W/2; ball.y=H/2; }
-  noScoreUntil = performance.now() + 250;
+  noScoreUntil = performance.now()+250;
   draw();
 }
 addEventListener('resize', resize);
 
+/* ===== Helpers ===== */
 const clamp=(v,min,max)=>v<min?min:v>max?max:v;
-const css=(name)=>getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const css=(n)=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
-/* ========== Serve/reset ========== */
 function resetBall(dir=1){
   ball.x=W/2; ball.y=H/2;
   const angle=(Math.random()*0.5 - 0.25);
   const sp = ball.baseSpeed * dpr;
   ball.vx=Math.cos(angle)*sp*dir; ball.vy=Math.sin(angle)*sp;
   playerY=H/2; oppY=H/2;
-  noScoreUntil = performance.now() + 200;
+  noScoreUntil=performance.now()+200;
   trail.length=0;
 }
 
-/* ========== Input (pointer/touch) ========== */
+/* ===== Input ===== */
 function updateFromPointerLike(clientY){
   const r = canvas.getBoundingClientRect();
   const y = (clientY - r.top) * dpr;
@@ -227,23 +269,23 @@ function updateFromPointerLike(clientY){
   playerY = clamp(y, paddle.h/2, H - paddle.h/2);
   if (NETMODE==='online-guest' && conn && conn.open) { try{ conn.send({ t:'in', y: playerY }); }catch(e){} }
 }
-function onPointer(e){ updateFromPointerLike(e.clientY); e.preventDefault(); }
-function onTouch(e){ if (!e.touches?.[0]) return; updateFromPointerLike(e.touches[0].clientY); e.preventDefault(); }
+const onPointer=(e)=>{ updateFromPointerLike(e.clientY); e.preventDefault(); };
+const onTouch=(e)=>{ if (!e.touches?.[0]) return; updateFromPointerLike(e.touches[0].clientY); e.preventDefault(); };
 
 let dragging=false;
 canvas.addEventListener('pointerdown',(e)=>{dragging=true;if(!running) startSingleIfNeeded(); onPointer(e);},{passive:false});
-canvas.addEventListener('pointermove',(e)=>{if(!dragging)return;onPointer(e);},{passive:false});
+canvas.addEventListener('pointermove',(e)=>{if(!dragging)return; onPointer(e);},{passive:false});
 canvas.addEventListener('pointerup',()=>{dragging=false;lastPointerY=null;pointerVy=0;},{passive:true});
 canvas.addEventListener('pointercancel',()=>{dragging=false;lastPointerY=null;pointerVy=0;},{passive:true});
 
 canvas.addEventListener('touchstart',(e)=>{dragging=true;if(!running) startSingleIfNeeded(); onTouch(e);},{passive:false});
-canvas.addEventListener('touchmove',(e)=>{if(!dragging)return;onTouch(e);},{passive:false});
+canvas.addEventListener('touchmove',(e)=>{if(!dragging)return; onTouch(e);},{passive:false});
 canvas.addEventListener('touchend',()=>{dragging=false;lastPointerY=null;pointerVy=0;},{passive:true});
 canvas.addEventListener('touchcancel',()=>{dragging=false;lastPointerY=null;pointerVy=0;},{passive:true});
 
 function startSingleIfNeeded(){ if (NETMODE==='single' && !running) startGame(); }
 
-/* ========== Render ========== */
+/* ===== Render ===== */
 function drawCourt(){
   ctx.fillStyle=css('--courtOuter'); ctx.fillRect(0,0,W,H);
   ctx.fillStyle=css('--courtMain');  ctx.fillRect(0,0,W,H);
@@ -291,10 +333,9 @@ function draw(){
   drawBall();
 }
 
-/* ========== Step (host or single) ========== */
+/* ===== Step ===== */
 function step(dt){
-  const oldX = ball.x;
-  const r = ball.r*dpr;
+  const oldX=ball.x, r=ball.r*dpr;
   ball.x += ball.vx*dt; ball.y += ball.vy*dt;
 
   // trail + anti-stall
@@ -306,31 +347,30 @@ function step(dt){
   if (ball.y < r){ ball.y = r; ball.vy *= -1; }
   if (ball.y > H - r){ ball.y = H - r; ball.vy *= -1; }
 
-  // paddles (with small fairness bias)
-  const px = 22*dpr, ax = W - (22*dpr + paddle.w);
-  const pTop = (playerY - paddle.h/2) - playerHitboxBonus, pBot = (playerY + paddle.h/2) + playerHitboxBonus;
-  const aTop = (oppY    - paddle.h/2) + aiHitboxTight,     aBot = (oppY    + paddle.h/2) - aiHitboxTight;
+  // paddles (with fairness)
+  const px=22*dpr, ax=W-(22*dpr + paddle.w);
+  const pTop=(playerY - paddle.h/2) - playerHitboxBonus, pBot=(playerY + paddle.h/2) + playerHitboxBonus;
+  const aTop=(oppY    - paddle.h/2) + aiHitboxTight,     aBot=(oppY    + paddle.h/2) - aiHitboxTight;
 
   if (ball.vx < 0){
     if (ball.x - r <= px + paddle.w && ball.x - r >= px && ball.y >= pTop && ball.y <= pBot){
       ball.x = px + paddle.w + r;
-      const t = (ball.y - playerY) / (paddle.h/2);
-      ball.vx = Math.abs(ball.vx) * 1.02;
-      ball.vy = (ball.vy * 0.45) + (t * 240 * dpr);
-      // spin from swipe
-      ball.vy += pointerVy * 5; pointerVy = 0;
-      // clamp bounce angle + max speed
+      const t=(ball.y - playerY)/(paddle.h/2);
+      ball.vx = Math.abs(ball.vx)*1.02;
+      ball.vy = (ball.vy*0.45) + (t*240*dpr);
+      // spin
+      ball.vy += pointerVy*5; pointerVy=0;
       clampBounceAndSpeed(+1);
-      // === POINTS: paddle hit ===
-      points += PTS_HIT; updateHUD();
+      // hidden points
+      points += PTS_HIT;
       vib(8);
     }
   } else {
     if (ball.x + r >= ax && ball.x + r <= ax + paddle.w && ball.y >= aTop && ball.y <= aBot){
       ball.x = ax - r;
-      const t = (ball.y - oppY) / (paddle.h/2);
-      ball.vx = -Math.abs(ball.vx) * 0.98; // AI shaves a bit
-      ball.vy = (ball.vy * 0.45) + (t * 230 * dpr);
+      const t=(ball.y - oppY)/(paddle.h/2);
+      ball.vx = -Math.abs(ball.vx)*0.98;
+      ball.vy = (ball.vy*0.45) + (t*230*dpr);
       clampBounceAndSpeed(-1);
       vib(6);
     }
@@ -344,23 +384,23 @@ function step(dt){
     if (rightOut){ score('L'); return; }
   }
 
-  // AI move
+  // AI
   if (aiOn){
     aiTimer += dt;
     if (aiTimer >= aiReact){
       aiTimer = 0;
       if (ball.vx > 0){
         const axX = W - (22*dpr + paddle.w);
-        const timeToReach = Math.max(0.001, (axX - ball.x) / Math.max(80, ball.vx));
-        let projY = ball.y + ball.vy * timeToReach;
+        const timeToReach = Math.max(0.001, (axX - ball.x)/Math.max(80, ball.vx));
+        let projY = ball.y + ball.vy*timeToReach;
         const hh = H - ball.r*dpr;
         while (projY < ball.r*dpr || projY > hh){
           if (projY < ball.r*dpr) projY = ball.r*dpr + (ball.r*dpr - projY);
           else if (projY > hh)    projY = hh - (projY - hh);
         }
         const diff = scoreL - scoreR;
-        const baseErr = (diff <= -2) ? 34*dpr : (diff >= 2 ? 10*dpr : 20*dpr);
-        const jitter = (Math.random()*2 - 1) * baseErr;
+        const baseErr = (diff <= -2)? 34*dpr : (diff >= 2 ? 10*dpr : 20*dpr);
+        const jitter = (Math.random()*2 - 1)*baseErr;
         aiAimY = clamp(projY + jitter, paddle.h/2, H - paddle.h/2);
       } else { aiAimY = H/2; }
     }
@@ -375,7 +415,7 @@ function step(dt){
 
   draw();
 
-  // net sync (if online host)
+  // net sync (host)
   if (NETMODE==='online-host' && conn && conn.open){
     const now = performance.now();
     if (now - netLastSend > 33){
@@ -386,49 +426,63 @@ function step(dt){
 }
 
 function clampBounceAndSpeed(dirSign){
-  // dirSign: +1 to the right, -1 to left
-  const speed = Math.hypot(ball.vx, ball.vy);
-  let angle = Math.atan2(ball.vy, Math.abs(ball.vx));
-  const maxAngle = Math.PI * 0.36; // ~65°
+  const speed=Math.hypot(ball.vx,ball.vy);
+  let angle=Math.atan2(ball.vy,Math.abs(ball.vx));
+  const maxAngle=Math.PI*0.36;
   angle = Math.max(-maxAngle, Math.min(maxAngle, angle));
-  ball.vx = Math.cos(angle) * speed * (dirSign>0?1:-1);
-  ball.vy = Math.sin(angle) * speed;
-  const maxSp = ball.baseSpeed * dpr * 1.30;
-  const curSp = Math.hypot(ball.vx, ball.vy);
-  if (curSp > maxSp){ const m = maxSp/curSp; ball.vx*=m; ball.vy*=m; }
+  ball.vx = Math.cos(angle)*speed*(dirSign>0?1:-1);
+  ball.vy = Math.sin(angle)*speed;
+  const maxSp = ball.baseSpeed*dpr*1.30;
+  const curSp = Math.hypot(ball.vx,ball.vy);
+  if (curSp>maxSp){ const m=maxSp/curSp; ball.vx*=m; ball.vy*=m; }
 }
 
-/* ========== Score / End ========== */
-function score(side){ // 'L' means you scored; 'R' AI scored
+/* ===== Score / End ===== */
+function score(side){ // 'L' you scored; 'R' AI scored
   if (side==='L'){ scoreL++; points += PTS_GOAL; } else { scoreR++; }
-  updateHUD();
+  scoreEl.textContent = `${scoreL} : ${scoreR}`;
   scoreEl.classList.remove('bump'); void scoreEl.offsetWidth; scoreEl.classList.add('bump');
 
-  // adaptive AI & comeback assist (kept)
+  // adaptive AI + comeback assist
   const diff = scoreL - scoreR;
-  if      (diff <= -2){ aiSpeed = 280*dpr; aiNoise = 34*dpr; aiReact = 0.095; ball.r = 12; }
-  else if (diff >= 2){  aiSpeed = 340*dpr; aiNoise = 22*dpr; aiReact = 0.075; ball.r = 9; }
-  else {                aiSpeed = 310*dpr; aiNoise = 28*dpr; aiReact = 0.085; ball.r = 10; }
+  if      (diff <= -2){ aiSpeed=280*dpr; aiNoise=34*dpr; aiReact=0.095; ball.r=12; }
+  else if (diff >= 2){  aiSpeed=340*dpr; aiNoise=22*dpr; aiReact=0.075; ball.r=9; }
+  else {                aiSpeed=310*dpr; aiNoise=28*dpr; aiReact=0.085; ball.r=10; }
 
   // win by 2
   const lead = Math.abs(scoreL - scoreR);
   if ((scoreL >= POINTS_TO_WIN || scoreR >= POINTS_TO_WIN) && lead >= 2){
-    if (scoreL > scoreR) { points += PTS_WIN; updateHUD(); }
-    maybeUpdateHighScore();
-    running=false; overlay.classList.remove('hidden');
-    const t = document.querySelector('.card.home .title'); if (t) t.textContent = (scoreL > scoreR ? 'You win!' : 'You lose');
-    setTimeout(()=>{ const tt=document.querySelector('.card.home .title'); if (tt) tt.textContent='PONG'; }, 1200);
+    running=false;
+    overlay.classList.remove('hidden');
+    homeCard.style.display='none';
+    lbCard.style.display='none';
+    resultCard.style.display='block';
+
+    // show win/lose; only show points on win
+    if (scoreL > scoreR){
+      points += PTS_WIN;
+      resultTitle.textContent = 'You win!';
+      resultPtsEl.textContent = points;
+      // update best
+      if (points > best){ best = points; localStorage.setItem('pong_best', String(best)); }
+      bestEl.textContent = `Best: ${best} pts`;
+      // submit to leaderboard (best effort)
+      submitScore(points).catch(()=>{});
+    } else {
+      resultTitle.textContent = 'You lose';
+      resultPtsEl.textContent = '—';
+    }
     vib(20);
     return;
   }
 
   vib(12);
-  // serve toward trailing side (feels fair)
+  // fair serve: trailing side receives
   const serveDir = (scoreL < scoreR) ? -1 : 1;
   resetBall(serveDir);
 }
 
-/* ========== Loop ========== */
+/* ===== Loop ===== */
 function loop(ts){
   const dt = Math.min(0.02, ((last===0? ts-16 : ts) - last)/1000 || 0.016);
   last = ts;
@@ -439,55 +493,116 @@ function loop(ts){
   if (running) requestAnimationFrame(loop);
 }
 
-/* ========== Start flows ========== */
-let NETMODE = 'home', peer=null, conn=null, isHost=false, netLastSend=0;
+/* ===== Start flows ===== */
 function startGame(){
-  scoreL=0; scoreR=0; points=0; updateHUD();
+  scoreL=0; scoreR=0; points=0;
   playerY=H/2; oppY=H/2; ball.r=10; flatTimer=0;
   aiSpeed=300*dpr; aiNoise=30*dpr; aiReact=0.09;
   resetBall(-1); // first serve to player
   overlay.classList.add('hidden');
+  homeCard.style.display='block'; resultCard.style.display='none'; lbCard.style.display='none';
   paused=false; running=true; last=0;
   requestAnimationFrame(loop);
 }
-function setBadgesForSingle(){
-  setPlayerBadge(p1img, p1name, me, 'You');
-  setPlayerBadge(p2img, p2name, { displayName:'CPU' }, 'CPU'); p2tag.textContent='AI';
+btnSingle.addEventListener('click', ()=>{ NETMODE='single'; aiOn=true; startGame(); });
+btnFind.addEventListener('click', ()=>{
+  if (!window.Peer){ showToast('Loading network libs…'); return; }
+  showToast('Looking for an opponent…'); findMatchOnline();
+});
+
+/* ===== Leaderboard UI ===== */
+btnLB.addEventListener('click', async ()=>{
+  homeCard.style.display='none'; resultCard.style.display='none'; lbCard.style.display='block';
+  await loadLeaderboard();
+});
+btnLBBack.addEventListener('click', ()=>{
+  lbCard.style.display='none'; resultCard.style.display='none'; homeCard.style.display='block';
+});
+btnAgain.addEventListener('click', ()=>{ NETMODE='single'; aiOn=true; startGame(); });
+btnHome.addEventListener('click', ()=>{
+  overlay.classList.remove('hidden'); homeCard.style.display='block'; lbCard.style.display='none'; resultCard.style.display='none';
+});
+btnShare.addEventListener('click', ()=>{
+  const text = (scoreL>scoreR) ? `I won Pong with ${points} pts!` : `I just played Pong!`;
+  try{
+    if (navigator.share){ navigator.share({ text, url: location.href }); }
+    else { navigator.clipboard.writeText(text + ' ' + location.href); showToast('Copied to clipboard'); }
+  }catch(e){ showToast('Share unavailable'); }
+});
+
+/* ===== Leaderboard networking (best-effort) =====
+   Implement these endpoints on your backend (e.g., Vercel):
+   - POST /api/leaderboard/submit   body: { fid, points, username, pfpUrl }
+   - GET  /api/leaderboard/top?limit=20   -> [{ fid, points, username, pfpUrl }]
+*/
+async function submitScore(points){
+  if (!me) return; // need fid to attribute
+  try{
+    await fetch('/api/leaderboard/submit', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ fid: me.fid, points, username: me.username || me.displayName, pfpUrl: me.pfpUrl || '' })
+    });
+  }catch(e){ /* ignore */ }
+}
+async function loadLeaderboard(){
+  lbList.innerHTML = '<div class="sub">Loading…</div>';
+  try{
+    const r = await fetch('/api/leaderboard/top?limit=20', { cache:'no-store' });
+    if (!r.ok) throw new Error('bad status');
+    const data = await r.json();
+    renderLB(Array.isArray(data)? data : []);
+  }catch(e){
+    // graceful fallback: show local best if any
+    const local = best ? [{ fid: me?.fid || 'local', points: best, username: (me?.username || me?.displayName || 'You'), pfpUrl: me?.pfpUrl || '' }] : [];
+    renderLB(local);
+    showToast('Leaderboard service unavailable');
+  }
+}
+function renderLB(rows){
+  lbList.innerHTML = '';
+  if (!rows.length){ lbList.innerHTML = '<div class="sub">No scores yet.</div>'; return; }
+  rows.sort((a,b)=> (b.points||0) - (a.points||0));
+  rows.forEach((row, i)=>{
+    const div = document.createElement('div');
+    div.className='row';
+    const img = document.createElement('img');
+    if (row.pfpUrl) img.src=row.pfpUrl;
+    const name = document.createElement('div');
+    name.className='name';
+    name.textContent = row.username || ('fid ' + row.fid);
+    const pts = document.createElement('div');
+    pts.className='pts'; pts.textContent = (row.points||0) + ' pts';
+    const rank = document.createElement('div');
+    rank.textContent = String(i+1) + '.';
+    rank.style.width='20px'; rank.style.textAlign='right'; rank.style.fontWeight='900'; rank.style.opacity='0.9';
+    div.append(rank, img, name, pts);
+    lbList.appendChild(div);
+  });
 }
 
-document.getElementById('btnSingle').addEventListener('click', ()=>{
-  NETMODE='single'; aiOn=true; setBadgesForSingle(); startGame();
-});
-
-document.getElementById('btnFind').addEventListener('click', ()=>{
-  if (!window.Peer){ showToast('Loading network libs…'); return; }
-  showToast('Looking for an opponent…');
-  findMatchOnline();
-});
-
-/* ========== Online Classic (optional; requires your /api/match) ========== */
+/* ===== Online Classic (optional) ===== */
 function findMatchOnline(){
+  let peerErr=false;
   isHost=false; peer=new Peer();
   peer.on('connection', c=>{
     NETMODE='online-host'; aiOn=false; conn=c;
-    setPlayerBadge(p1img, p1name, me, 'You'); setPlayerBadge(p2img, p2name, null, 'Player 2'); p2tag.textContent='P2';
     overlay.classList.add('hidden');
-    conn.on('data', onNetDataFromGuest); conn.on('close', ()=>{ showToast('Player left'); endOnline(); });
+    c.on('data', onNetDataFromGuest); c.on('close', ()=>{ showToast('Player left'); endOnline(); });
     startGame();
   });
-  peer.on('error', e=>{ showToast('Network error'); console.warn(e); endOnline(); });
+  peer.on('error', e=>{ if(!peerErr){ peerErr=true; showToast('Network error'); } console.warn(e); endOnline(); });
   peer.on('open', async(id)=>{
-    let resp; const u = me || {};
+    let resp;
     try{
-      resp = await fetch('/api/match',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({peerId:id, user:{fid:u.fid, username:u.username, displayName:u.displayName, pfpUrl:u.pfpUrl}})}).then(r=>r.json());
+      resp = await fetch('/api/match',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        peerId:id, user:{ fid: me?.fid, username: me?.username, displayName: me?.displayName, pfpUrl: me?.pfpUrl }
+      })}).then(r=>r.json());
     }catch(e){ showToast('Match server unreachable'); return endOnline(); }
     if (resp?.opponentPeerId){
       NETMODE='online-guest'; aiOn=false; overlay.classList.add('hidden');
       conn = peer.connect(resp.opponentPeerId);
       conn.on('open',()=>{ running=true; last=0; requestAnimationFrame(loop); });
       conn.on('data', onNetDataFromHost); conn.on('close', ()=>{ showToast('Disconnected'); endOnline(); });
-      setPlayerBadge(p2img, p2name, me, 'You'); p2tag.textContent='P2';
     } else if (resp?.wait){ showToast('Waiting for opponent…'); }
     else { showToast('Match error'); endOnline(); }
   });
@@ -496,14 +611,14 @@ function endOnline(){ running=false; overlay.classList.remove('hidden'); try{con
 function onNetDataFromGuest(msg){ if (!msg||typeof msg!=='object') return; if (msg.t==='in'){ oppY = clamp(msg.y, paddle.h/2, H - paddle.h/2); } }
 function onNetDataFromHost(msg){
   if (!msg||typeof msg!=='object') return;
-  if (msg.t==='st'){ ball.x=msg.x; ball.y=msg.y; ball.vx=msg.vx; ball.vy=msg.vy; playerY=msg.p1; oppY=msg.p2; scoreL=msg.sl; scoreR=msg.sr; updateHUD(); if (W!==msg.w||H!==msg.h) resize(); draw(); }
+  if (msg.t==='st'){ ball.x=msg.x; ball.y=msg.y; ball.vx=msg.vx; ball.vy=msg.vy; playerY=msg.p1; oppY=msg.p2; scoreL=msg.sl; scoreR=msg.sr; scoreEl.textContent = `${scoreL} : ${scoreR}`; if (W!==msg.w||H!==msg.h) resize(); draw(); }
 }
 
-/* ========== Boot ========== */
-function init(){ resize(); updateHUD(); draw(); }
+/* ===== Boot ===== */
+function init(){ resize(); draw(); }
 init();
 
-/* ========== Farcaster: hide splash when ready ========== */
+/* ===== Farcaster: hide splash when ready ===== */
 (function(){
   function callReadyFrom(obj){ try{ if(obj && obj.actions && typeof obj.actions.ready==='function'){ obj.actions.ready(); return true; } }catch(e){} return false; }
   function tryAll(){ if (callReadyFrom(window.__fc_sdk)) return true; if (window.farcaster && callReadyFrom(window.farcaster.sdk)) return true; if (window.frame && callReadyFrom(window.frame.sdk)) return true; if (callReadyFrom(window.sdk)) return true; return false; }
