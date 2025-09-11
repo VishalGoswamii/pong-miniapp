@@ -21,7 +21,7 @@
   }
 }' />
 
-<!-- Optional: PeerJS for Online -->
+<!-- Optional: PeerJS for Online (we’ll lazy-load if needed too) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js" defer></script>
 
 <style>
@@ -262,6 +262,7 @@ function go(name){
   PAGES[name].classList.add('active');
   if (name !== 'game') pauseGame();
   ensureReady(); // call on every navigation
+  hydrateUser(1500); // refresh name/pfp soon after navigation
 }
 
 /* ========= DOM ========= */
@@ -291,7 +292,7 @@ const toast = document.getElementById('toast');
 const vib = (ms)=>{ try{ if(navigator.vibrate) navigator.vibrate(ms);}catch(e){} };
 const showToast=(t)=>{ toast.textContent=t; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 2200); };
 
-/* ========= Farcaster user ========= */
+/* ========= Farcaster user (hydrated later) ========= */
 function readMiniUser(){
   try{
     const c1 = window.__fc_sdk && window.__fc_sdk.context;
@@ -301,10 +302,23 @@ function readMiniUser(){
     return (c1||c2||c3||c4)?.user || null;
   }catch(e){ return null; }
 }
-const me = readMiniUser();
-if (me){
-  uname.textContent = me.displayName || me.username || ('fid ' + me.fid);
-  if (me.pfpUrl){ pfp.src = me.pfpUrl; pfp.alt = uname.textContent; }
+let me = null;
+async function hydrateUser(maxMs = 3000){
+  const start = performance.now();
+  while (!me && performance.now() - start < maxMs){
+    const u = readMiniUser();
+    if (u){
+      me = u;
+      const label = u.displayName || u.username || ('fid ' + u.fid);
+      uname.textContent = label;
+      if (u.pfpUrl){ pfp.src = u.pfpUrl; pfp.alt = label; }
+      // HUD badge too
+      p1name.textContent = label;
+      if (u.pfpUrl){ p1img.src = u.pfpUrl; p1img.alt = label; }
+      break;
+    }
+    await new Promise(r => setTimeout(r, 150));
+  }
 }
 
 /* ========= Persistent Best ========= */
@@ -312,7 +326,7 @@ let best = Number(localStorage.getItem('pong_best') || 0);
 bestHome.textContent = `Best: ${best} pts`;
 
 /* ========= Game State ========= */
-const dpr = Math.max(1, Math.min(2, window.devicePixelRatio||1));
+let dpr = Math.max(1, Math.min(2, window.devicePixelRatio||1)); // mutable DPR
 let W=0, H=0, last=0, running=false, rafId=null, paused=false, noScoreUntil=0, NETMODE='home';
 let peer=null, conn=null, isHost=false, netLastSend=0;
 
@@ -327,8 +341,8 @@ const POINTS_TO_WIN = 11;
 // AI
 let aiOn=true, aiSpeed=310*dpr, aiReact=0.085, aiTimer=0, aiAimY=0, aiNoise=28*dpr;
 
-// fairness
-const playerHitboxBonus=10*dpr, aiHitboxTight=8*dpr;
+// fairness (mutable with DPR)
+let playerHitboxBonus=10*dpr, aiHitboxTight=8*dpr;
 
 // trail
 const trail=[];
@@ -348,6 +362,16 @@ let serving=false; let serveStore=null;
 
 /* ========= Resize ========= */
 function resize(){
+  // refresh DPR on rotation/zoom
+  const ndpr = Math.max(1, Math.min(2, window.devicePixelRatio||1));
+  if (ndpr !== dpr){
+    dpr = ndpr;
+    paddle.w = 4*dpr;
+    playerHitboxBonus = 10*dpr;
+    aiHitboxTight = 8*dpr;
+    aiNoise = 28*dpr;
+  }
+
   const w = innerWidth, h = innerHeight;
   canvas.width = Math.floor(w*dpr);
   canvas.height = Math.floor(h*dpr);
@@ -423,15 +447,19 @@ const onPointer=(e)=>{ updateFromPointerLike(e.clientY); e.preventDefault(); };
 const onTouch=(e)=>{ if (!e.touches?.[0]) return; updateFromPointerLike(e.touches[0].clientY); e.preventDefault(); };
 
 let dragging=false;
-canvas.addEventListener('pointerdown',(e)=>{dragging=true; if(!running) startSingleIfNeeded(); onPointer(e);},{passive:false});
-canvas.addEventListener('pointermove',(e)=>{if(!dragging)return; onPointer(e);},{passive:false});
-canvas.addEventListener('pointerup',()=>{dragging=false; lastPointerY=null; pointerVy=0;},{passive:true});
-canvas.addEventListener('pointercancel',()=>{dragging=false; lastPointerY=null; pointerVy=0;},{passive:true});
-
-canvas.addEventListener('touchstart',(e)=>{dragging=true; if(!running) startSingleIfNeeded(); onTouch(e);},{passive:false});
-canvas.addEventListener('touchmove',(e)=>{if(!dragging)return; onTouch(e);},{passive:false});
-canvas.addEventListener('touchend',()=>{dragging=false; lastPointerY=null; pointerVy=0;},{passive:true});
-canvas.addEventListener('touchcancel',()=>{dragging=false; lastPointerY=null; pointerVy=0;},{passive:true});
+// Pointer/Touch dedupe: prefer Pointer Events; fallback to Touch
+const USE_POINTER = 'onpointerdown' in window;
+if (USE_POINTER) {
+  canvas.addEventListener('pointerdown',(e)=>{dragging=true; if(!running) startSingleIfNeeded(); onPointer(e);},{passive:false});
+  canvas.addEventListener('pointermove',(e)=>{if(!dragging)return; onPointer(e);},{passive:false});
+  canvas.addEventListener('pointerup',()=>{dragging=false; lastPointerY=null; pointerVy=0;},{passive:true});
+  canvas.addEventListener('pointercancel',()=>{dragging=false; lastPointerY=null; pointerVy=0;},{passive:true});
+} else {
+  canvas.addEventListener('touchstart',(e)=>{dragging=true; if(!running) startSingleIfNeeded(); onTouch(e);},{passive:false});
+  canvas.addEventListener('touchmove',(e)=>{if(!dragging)return; onTouch(e);},{passive:false});
+  canvas.addEventListener('touchend',()=>{dragging=false; lastPointerY=null; pointerVy=0;},{passive:true});
+  canvas.addEventListener('touchcancel',()=>{dragging=false; lastPointerY=null; pointerVy=0;},{passive:true});
+}
 
 function startSingleIfNeeded(){ if (NETMODE==='single' && !running) startGame(); }
 
@@ -486,7 +514,7 @@ function draw(){
 function step(dt){
   const oldX=ball.x, r=ball.r*dpr;
 
-  // Freeze physics while serving (prevents vertical-only movement)
+  // Freeze physics while serving
   if (!serving){
     ball.x += ball.vx*dt; ball.y += ball.vy*dt;
   }
@@ -690,17 +718,25 @@ function renderLB(rows){
 /* ========= Online Classic (optional) ========= */
 function findMatchOnline(){
   go('game'); resize();
+
   isHost=false; peer=new Peer();
+
   peer.on('connection', c=>{
     NETMODE='online-host'; aiOn=false; conn=c;
+    // labels
+    p2name.textContent = 'Opponent'; p2tag.textContent = 'P2';
+
     scoreL=0; scoreR=0; points=0; playerY=H/2; oppY=H/2; ball.r=10;
     resetBall(-1);
     paused=false; running=true; last=0;
     if (rafId) cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(loop);
-    c.on('data', onNetDataFromGuest); c.on('close', ()=>{ showToast('Player left'); endOnline(); });
+    c.on('data', onNetDataFromGuest);
+    c.on('close', ()=>{ showToast('Player left'); endOnline(); });
   });
+
   peer.on('error', e=>{ console.warn(e); showToast('Network error'); endOnline(); });
+
   peer.on('open', async(id)=>{
     let resp;
     try{
@@ -708,27 +744,67 @@ function findMatchOnline(){
         peerId:id, user:{ fid: me?.fid, username: me?.username, displayName: me?.displayName, pfpUrl: me?.pfpUrl }
       })}).then(r=>r.json());
     }catch(e){ showToast('Match server unreachable'); return endOnline(); }
+
     if (resp?.opponentPeerId){
       NETMODE='online-guest'; aiOn=false;
+      // labels
+      p2name.textContent = 'Host'; p2tag.textContent = 'P1';
+
       conn = peer.connect(resp.opponentPeerId);
       conn.on('open',()=>{ paused=false; running=true; last=0; if (rafId) cancelAnimationFrame(rafId); rafId = requestAnimationFrame(loop); });
-      conn.on('data', onNetDataFromHost); conn.on('close', ()=>{ showToast('Disconnected'); endOnline(); });
-    } else if (resp?.wait){ showToast('Waiting for opponent…'); }
-    else { showToast('Match error'); endOnline(); }
+      conn.on('data', onNetDataFromHost);
+      conn.on('close', ()=>{ showToast('Disconnected'); endOnline(); });
+    } else if (resp?.wait){
+      showToast('Waiting for opponent…');
+    } else {
+      showToast('Match error'); endOnline();
+    }
   });
 }
 function endOnline(){ pauseGame(); go('home'); try{conn&&conn.close();}catch(e){} try{peer&&peer.destroy();}catch(e){} conn=null; peer=null; NETMODE='home'; }
-function onNetDataFromGuest(msg){ if (!msg||typeof msg!=='object') return; if (msg.t==='in'){ oppY = clamp(msg.y, paddle.h/2, H - paddle.h/2); } }
-function onNetDataFromHost(msg){
+function onNetDataFromGuest(msg){
   if (!msg||typeof msg!=='object') return;
-  if (msg.t==='st'){ ball.x=msg.x; ball.y=msg.y; ball.vx=msg.vx; ball.vy=msg.vy; playerY=msg.p1; oppY=msg.p2; scoreL=msg.sl; scoreR=msg.sr; scoreEl.textContent = `${scoreL} : ${scoreR}`; if (W!==msg.w||H!==msg.h) resize(); draw(); }
+  if (msg.t==='in'){ oppY = clamp(msg.y, paddle.h/2, H - paddle.h/2); }
+}
+function onNetDataFromHost(msg){
+  if (!msg || typeof msg !== 'object') return;
+  if (msg.t === 'st') {
+    // scale host coordinates to local canvas
+    const sx = W / msg.w, sy = H / msg.h;
+
+    // ball pos/vel scaled
+    ball.x = msg.x * sx;
+    ball.y = msg.y * sy;
+    ball.vx = msg.vx * sx;
+    ball.vy = msg.vy * sy;
+
+    // YOU are P2 on the guest; host is P1
+    playerY = msg.p2 * sy;
+    oppY    = msg.p1 * sy;
+
+    scoreL = msg.sl; scoreR = msg.sr;
+    scoreEl.textContent = `${scoreL} : ${scoreR}`;
+    draw();
+  }
 }
 
 /* ========= Buttons ========= */
 btnSingle.addEventListener('click', ()=> startGame());
-btnFind.addEventListener('click', ()=>{
-  if (!window.Peer){ showToast('Loading network libs…'); return; }
-  showToast('Looking for an opponent…'); findMatchOnline();
+btnFind.addEventListener('click', async ()=>{
+  // Lazy-load PeerJS if defer hasn't finished
+  if (!window.Peer){ await new Promise(r => setTimeout(r, 300)); }
+  if (!window.Peer){
+    const s = document.createElement('script');
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js";
+    document.head.appendChild(s);
+    await new Promise(r => s.onload = r);
+  }
+
+  // Update HUD labels for online mode immediately
+  p2name.textContent = 'Opponent'; p2tag.textContent = 'P2';
+
+  showToast('Looking for an opponent…');
+  findMatchOnline();
 });
 btnLB.addEventListener('click', async ()=>{ go('leaderboard'); await loadLeaderboard(); });
 btnLBBack.addEventListener('click', ()=> go('home'));
@@ -736,9 +812,10 @@ btnAgain.addEventListener('click', ()=> startGame());
 btnHome.addEventListener('click', ()=> go('home'));
 btnShare.addEventListener('click', ()=>{
   const text = (resPts.textContent==='—') ? `I just played Pong!` : `I won Pong with ${resPts.textContent} pts!`;
-  try{ if (navigator.share){ navigator.share({ text, url: location.href }); }
-       else { navigator.clipboard.writeText(text + ' ' + location.href); showToast('Copied'); } }
-  catch(e){ showToast('Share unavailable'); }
+  try{
+    if (navigator.share){ navigator.share({ text, url: location.href }); }
+    else { navigator.clipboard.writeText(text + ' ' + location.href); showToast('Copied'); }
+  } catch(e){ showToast('Share unavailable'); }
 });
 
 /* ========= Boot ========= */
@@ -747,6 +824,7 @@ function init(){
   setBadge(p1img, p1name, me, 'You'); p2name.textContent='CPU'; p2tag.textContent='AI';
   resize(); draw();
   ensureReady(); // call at boot
+  hydrateUser(); // hydrate Farcaster user soon
 }
 init();
 
