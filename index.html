@@ -16,65 +16,197 @@
       "name": "Pong",
       "url": "https://pong-miniapp.vercel.app/",
       "splashImageUrl": "https://pong-miniapp.vercel.app/icon-200.png",
-      "splashBackgroundColor": "#0f172a"
+      "splashBackgroundColor": "#0b0f1a"
     }
   }
 }' />
 
-<!-- Optional: PeerJS if you use /api/match for online -->
+<!-- Optional: PeerJS for Online -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js" defer></script>
 
 <style>
 :root{
+  /* Court (game) */
   --courtOuter:#061429; --courtMain:#1E40AF; --courtKitchen:#ef4444; --courtLine:#F8FAFC;
   --centerRed:#ef4444; --ballY:#FDE047; --paddleFace:#D4DEE9; --paddleEdge:#425C7A;
-}
-*{box-sizing:border-box}
-html,body{margin:0;height:100%;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:#0b1220;color:#e9f1ff}
 
-/* Pages */
-.page{display:none; min-height:100dvh;}
+  /* Retro Home */
+  --bg-deep:#0b0f1a;
+  --bg-mid:#11182b;
+  --grid:#20304f;
+  --scan:#0a0f1b;
+  --neon-cyan:#46e2ff;
+  --neon-mag:#ff4dff;
+  --neon-sun:#ffd166;
+  --glass:#0f1526cc;
+  --glass-border:rgba(255,255,255,.12);
+  --text-hi:#e9f1ff;
+  --text-lo:#a9b6d1;
+  --button-bg:#0e1425;
+  --button-border:rgba(255,255,255,.18);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg-deep);color:var(--text-hi);
+  font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+
+/* ===== Pages ===== */
+.page{display:none;min-height:100dvh}
 .page.active{display:block}
 
-/* HOME */
+/* ===== Retro Home (full page, separate from game) ===== */
 #page-home{
-  display:flex; align-items:center; justify-content:center; padding:24px;
-  background: radial-gradient(1200px 600px at 50% -10%, #1f2a44 0%, #0b1220 60%);
+  position:relative; display:flex; align-items:center; justify-content:center; padding:20px;
+  background:
+    radial-gradient(1200px 800px at 50% -20%, #1a2440 0%, var(--bg-deep) 60%),
+    linear-gradient(180deg, #0b0f1a 0%, #0b0f1a 100%);
+  overflow:hidden;
 }
-.card{width:100%; max-width:680px; background:rgba(14,20,34,.88); border:1px solid rgba(255,255,255,.12);
-  border-radius:18px; padding:22px; box-shadow:0 28px 90px rgba(0,0,0,.55)}
-.header{display:flex; align-items:center; gap:14px; justify-content:center}
-.logo{width:72px;height:72px;border-radius:16px;display:flex;align-items:center;justify-content:center;
-  font-weight:1000; letter-spacing:.6px; color:#dce8ff;
-  background:linear-gradient(135deg,#60a5fa22,#a3b5d622); border:1px solid rgba(255,255,255,.18)}
-.title{font-size:28px;font-weight:1000;margin:2px 0 0}
-.profile{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:8px}
-.profile img{width:36px;height:36px;border-radius:999px;object-fit:cover;background:#0f172a;border:1px solid rgba(255,255,255,.16)}
-.best{margin-top:2px;font-size:12px;opacity:.82;text-align:center}
 
-.grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:16px}
-.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border-radius:14px;
-  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12)}
-.row h3{margin:0;font-size:18px}
-.row p{margin:0;font-size:13px;opacity:.9}
-button{padding:12px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.18);font-weight:900;font-size:15px;cursor:pointer}
-.primary{color:#08111a;background:#60A5FA;box-shadow:0 8px 24px rgba(37,99,235,.45),inset 0 0 0 1px rgba(255,255,255,.18)}
-.ghost{color:#e9f1ff;background:transparent}
+/* animated grid */
+#page-home::before{
+  content:""; position:absolute; inset:-20px; pointer-events:none; opacity:.35;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 28px, var(--grid) 28px 29px),
+    repeating-linear-gradient(90deg, transparent 0 28px, var(--grid) 28px 29px);
+  transform: perspective(800px) rotateX(55deg) translateY(25%);
+  filter: blur(.4px);
+}
+/* scanlines */
+#page-home::after{
+  content:""; position:absolute; inset:0; pointer-events:none; opacity:.12;
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 2px, transparent 2px 4px);
+  mix-blend-mode:soft-light;
+}
 
-/* GAME PAGE */
+.home-card{
+  position:relative; width:100%; max-width:720px;
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  border-radius:20px;
+  padding:18px 16px 16px;
+  box-shadow:
+    0 30px 90px rgba(0,0,0,.55),
+    inset 0 0 0 1px rgba(255,255,255,.06);
+}
+
+/* header: logo + title */
+.home-header{
+  display:flex; align-items:center; justify-content:space-between; gap:12px; padding:2px 6px 10px;
+}
+.brand{
+  display:flex; align-items:center; gap:12px;
+}
+.logo-wrap{
+  width:74px; height:74px; border-radius:16px; position:relative;
+  background: radial-gradient(120% 120% at 30% 15%, #15213b 0, #0c1223 60%);
+  box-shadow:
+    0 0 24px rgba(70,226,255,.25),
+    inset 0 0 0 1px rgba(255,255,255,.08);
+  display:flex; align-items:center; justify-content:center;
+}
+.logo{
+  font-size:26px; font-weight:1000; letter-spacing:2px;
+  color:#dff7ff;
+  text-shadow:
+    0 0 6px rgba(70,226,255,.85),
+    0 0 18px rgba(255,77,255,.35),
+    0 0 32px rgba(255,209,102,.25);
+  position:relative;
+}
+/* subtle flicker */
+.logo::after{
+  content:"PONG"; position:absolute; left:0; top:0;
+  color:#fff; opacity:.08; filter:blur(1px);
+  animation:chroma 3.3s infinite steps(2,end);
+}
+@keyframes chroma{
+  0%,18%,22%,25%,53%,57%,100%{ transform:translate(0,0); }
+  19%{ transform:translate(0.6px,-0.4px); }
+  23%{ transform:translate(-0.5px,0.6px); }
+  55%{ transform:translate(0.4px,0.4px); }
+}
+
+.title-block{
+  display:flex; flex-direction:column; line-height:1.15;
+}
+.title{
+  font-size:28px; font-weight:1000; letter-spacing:.6px;
+  background:linear-gradient(90deg, var(--neon-cyan), var(--neon-mag));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  filter: drop-shadow(0 0 10px rgba(70,226,255,.22));
+}
+.subtitle{
+  margin-top:2px; font-size:12px; color:var(--text-lo);
+}
+
+/* profile */
+.profile{
+  display:flex; align-items:center; justify-content:flex-end; gap:10px; padding:6px 6px 0;
+}
+.profile img{
+  width:34px; height:34px; border-radius:999px; object-fit:cover;
+  background:#0f172a; border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 0 0 2px rgba(70,226,255,.15);
+}
+.profile .name{ font-weight:900; font-size:14px }
+.best{
+  text-align:right; font-size:12px; color:var(--text-lo); margin-top:2px;
+}
+
+/* big primary CTA row */
+.actions{
+  display:grid; grid-template-columns:1fr; gap:12px; margin:12px 6px 2px;
+}
+.btn{
+  appearance:none; border-radius:14px; padding:14px 16px; font-weight:1000; font-size:16px; cursor:pointer;
+  border:1px solid var(--button-border); color:var(--text-hi);
+  background:
+    linear-gradient(180deg, #141c35, #0c1428);
+  box-shadow:
+    0 10px 26px rgba(0,0,0,.45),
+    inset 0 0 0 1px rgba(255,255,255,.06),
+    0 0 0 1px rgba(116,160,255,.10);
+  transition: transform .06s ease, box-shadow .12s ease, filter .12s ease;
+}
+.btn:hover{ filter:saturate(1.1) brightness(1.03) }
+.btn:active{ transform:translateY(1px) scale(.997) }
+.btn-primary{
+  background:
+    linear-gradient(180deg, #1a9cff, #1667ff);
+  color:#07111d;
+  text-shadow:0 1px 0 rgba(255,255,255,.35);
+  box-shadow:
+    0 14px 40px rgba(26,156,255,.45),
+    inset 0 0 0 1px rgba(255,255,255,.20);
+}
+.btn-row{
+  display:grid; grid-template-columns:1fr 1fr; gap:10px;
+}
+
+/* small foot info */
+.foot{
+  display:flex; justify-content:space-between; align-items:center; gap:10px;
+  margin:12px 6px 0; color:var(--text-lo); font-size:12px;
+}
+.badge{
+  border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.06);
+  padding:4px 8px; border-radius:999px; font-weight:800; color:#cfe2ff;
+}
+
+/* ===== Game Page (unchanged except isolated) ===== */
 #page-game{position:fixed; inset:0; background:var(--courtOuter)}
 #wrap{position:absolute; inset:0; z-index:0}
 canvas{display:block; width:100%; height:100%; touch-action:none}
-
-/* HUD in game */
 #hud{position:absolute; inset:0; pointer-events:none}
-#score{position:absolute; top:calc(env(safe-area-inset-top) + 10px); left:50%; transform:translateX(-50%);
+#score{
+  position:absolute; top:calc(env(safe-area-inset-top) + 10px); left:50%; transform:translateX(-50%);
   color:#fff; font-weight:1000; letter-spacing:1.2px; font-size:26px; padding:8px 14px; border-radius:16px;
   background:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,.07));
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,.16), 0 14px 40px rgba(0,0,0,.45)}
-#score.bump{animation:bump .18s ease}
-@keyframes bump{50%{transform:translateX(-50%) scale(1.08)}}
-
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.16), 0 14px 40px rgba(0,0,0,.45)
+}
+#score.bump{animation:bump .18s ease} @keyframes bump{50%{transform:translateX(-50%) scale(1.08)}}
 #players{position:absolute; top:calc(env(safe-area-inset-top) + 54px); left:0; right:0; display:flex; justify-content:space-between; padding:0 10px}
 .pb{display:flex; align-items:center; gap:8px; background:rgba(12,18,32,.6); border:1px solid rgba(255,255,255,.14);
   color:#eaf3ff; padding:6px 10px; border-radius:999px; min-width:120px}
@@ -83,19 +215,21 @@ canvas{display:block; width:100%; height:100%; touch-action:none}
 .pb .tag{font-size:12px;opacity:.8}
 #hint{position:absolute; bottom:calc(env(safe-area-inset-bottom) + 10px); left:0; right:0; text-align:center; color:#e7f2ff; font-size:13px; opacity:.9}
 
-/* RESULT PAGE */
-#page-result{
+/* ===== Result & Leaderboard Pages (carry-over styles) ===== */
+#page-result, #page-leaderboard{
   display:flex; align-items:center; justify-content:center; padding:24px;
-  background: radial-gradient(1200px 600px at 50% -10%, #1f2a44 0%, #0b1220 60%);
+  background:
+    radial-gradient(1200px 800px at 50% -20%, #1a2440 0%, var(--bg-deep) 60%);
 }
+.card{
+  background:rgba(14,20,34,.88); border:1px solid var(--glass-border); color:var(--text-hi);
+  border-radius:18px; padding:22px; box-shadow:0 28px 90px rgba(0,0,0,.55); width:100%; max-width:680px;
+}
+.title{font-size:28px;font-weight:1000}
+.sub{margin-top:4px;opacity:.85;font-size:14px}
 .actions{display:flex; gap:10px; justify-content:center; margin-top:12px}
-
-/* LEADERBOARD PAGE */
-#page-leaderboard{
-  display:flex; align-items:center; justify-content:center; padding:24px;
-  background: radial-gradient(1200px 600px at 50% -10%, #1f2a44 0%, #0b1220 60%);
-}
-.lb{margin-top:10px;text-align:left;max-height:50vh;overflow:auto}
+.btn.ghost{background:transparent}
+.lb{margin-top:10px;text-align:left;max-height:52vh;overflow:auto}
 .lb .entry{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:rgba(255,255,255,.05);
   border:1px solid rgba(255,255,255,.12);margin-bottom:8px}
 .lb .entry img{width:28px;height:28px;border-radius:999px;object-fit:cover;background:#0f172a}
@@ -109,96 +243,97 @@ canvas{display:block; width:100%; height:100%; touch-action:none}
 </style>
 </head>
 <body>
-  <!-- HOME PAGE -->
-  <section id="page-home" class="page active">
-    <div class="card">
-      <div class="header">
-        <div class="logo">PONG</div>
-        <div>
+
+<!-- ===== HOME (Retro) ===== -->
+<section id="page-home" class="page active" role="main">
+  <div class="home-card" aria-label="Home">
+    <div class="home-header">
+      <div class="brand">
+        <div class="logo-wrap"><div class="logo">PONG</div></div>
+        <div class="title-block">
           <div class="title">Classic Pong</div>
-          <div id="bestHome" class="best">Best: 0 pts</div>
+          <div class="subtitle">Farcaster Edition • Retro Neon</div>
         </div>
       </div>
-
-      <div class="profile">
-        <img id="pfp" alt="">
-        <div id="uname" style="font-weight:900">Guest</div>
-      </div>
-
-      <div class="grid">
-        <div class="row">
-          <div><h3>Single Player</h3><p>Drag to move • Win by 2</p></div>
-          <button class="primary" id="btnSingle">Play</button>
+      <div>
+        <div class="profile">
+          <img id="pfp" alt="">
+          <div class="name" id="uname">Guest</div>
         </div>
-        <div class="row">
-          <div><h3>Multiplayer</h3><p>Find Match (Classic)</p></div>
-          <button class="primary" id="btnFind">Find Match</button>
-        </div>
-        <div class="row">
-          <div><h3>Leaderboard</h3><p>Highest points (by FID)</p></div>
-          <button class="primary" id="btnLB">Open</button>
-        </div>
+        <div class="best" id="bestHome">Best: 0 pts</div>
       </div>
     </div>
-  </section>
 
-  <!-- GAME PAGE -->
-  <section id="page-game" class="page">
-    <div id="wrap"><canvas id="game" aria-label="Pong"></canvas></div>
-    <div id="hud">
-      <div id="score" aria-live="polite">0 : 0</div>
-      <div id="players">
-        <div class="pb"><img id="p1img" alt=""><div><div class="name" id="p1name">You</div><div class="tag">P1</div></div></div>
-        <div class="pb"><img id="p2img" alt=""><div><div class="name" id="p2name">CPU</div><div class="tag" id="p2tag">AI</div></div></div>
-      </div>
-      <div id="hint">Swipe/drag to move. Points appear only if you win.</div>
-    </div>
-  </section>
-
-  <!-- RESULT PAGE -->
-  <section id="page-result" class="page">
-    <div class="card">
-      <h1 class="title" id="resTitle">You win!</h1>
-      <p class="sub">Points: <b id="resPts">0</b></p>
-      <div class="actions">
-        <button class="primary" id="btnAgain">Play Again</button>
-        <button class="ghost" id="btnHome">Home</button>
-        <button class="ghost" id="btnShare">Share</button>
+    <div class="actions">
+      <button id="btnSingle" class="btn btn-primary">▶ Play Single Player</button>
+      <div class="btn-row">
+        <button id="btnFind" class="btn">🕹️ Find Match</button>
+        <button id="btnLB" class="btn">🏆 Leaderboard</button>
       </div>
     </div>
-  </section>
 
-  <!-- LEADERBOARD PAGE -->
-  <section id="page-leaderboard" class="page">
-    <div class="card">
-      <h1 class="title">Leaderboard</h1>
-      <p class="sub">Top scores (highest first)</p>
-      <div id="lbList" class="lb"></div>
-      <div class="actions">
-        <button class="ghost" id="btnLBBack">Back</button>
-      </div>
+    <div class="foot">
+      <div class="badge">Retro Mode</div>
+      <div>Swipe to move • Win by 2</div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <div id="toast"></div>
+<!-- ===== GAME ===== -->
+<section id="page-game" class="page" aria-label="Game">
+  <div id="wrap"><canvas id="game" aria-label="Pong"></canvas></div>
+  <div id="hud">
+    <div id="score" aria-live="polite">0 : 0</div>
+    <div id="players">
+      <div class="pb"><img id="p1img" alt=""><div><div class="name" id="p1name">You</div><div class="tag">P1</div></div></div>
+      <div class="pb"><img id="p2img" alt=""><div><div class="name" id="p2name">CPU</div><div class="tag" id="p2tag">AI</div></div></div>
+    </div>
+    <div id="hint">Points appear only if you win.</div>
+  </div>
+</section>
+
+<!-- ===== RESULT ===== -->
+<section id="page-result" class="page">
+  <div class="card">
+    <h1 class="title" id="resTitle">You win!</h1>
+    <p class="sub">Points: <b id="resPts">0</b></p>
+    <div class="actions">
+      <button class="btn btn-primary" id="btnAgain">Play Again</button>
+      <button class="btn ghost" id="btnHome">Home</button>
+      <button class="btn ghost" id="btnShare">Share</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== LEADERBOARD ===== -->
+<section id="page-leaderboard" class="page">
+  <div class="card">
+    <h1 class="title">Leaderboard</h1>
+    <p class="sub">Top scores (highest first)</p>
+    <div id="lbList" class="lb"></div>
+    <div class="actions"><button class="btn ghost" id="btnLBBack">Back</button></div>
+  </div>
+</section>
+
+<div id="toast"></div>
 
 <script>
 'use strict';
 
-/* ========= Simple SPA Router ========= */
+/* ========= Simple Router ========= */
 const PAGES = {
   home: document.getElementById('page-home'),
   game: document.getElementById('page-game'),
   result: document.getElementById('page-result'),
   leaderboard: document.getElementById('page-leaderboard'),
 };
-function go(pageName){
+function go(name){
   Object.values(PAGES).forEach(p=>p.classList.remove('active'));
-  PAGES[pageName].classList.add('active');
-  if (pageName !== 'game') pauseGame(); // fully pause & stop raf when not in game
+  PAGES[name].classList.add('active');
+  if (name !== 'game') pauseGame();
 }
 
-/* ========= DOM (game) ========= */
+/* ========= DOM ========= */
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d', { alpha:false }) || canvas.getContext('2d');
 const scoreEl = document.getElementById('score');
@@ -258,21 +393,21 @@ let scoreL=0, scoreR=0;
 const POINTS_TO_WIN = 11;
 
 // AI
-let aiOn=true, aiSpeed=310*dpr, aiReact=0.085, aiTimer=0, aiAimY=0, aiNoise=28*dpr;
+let aiOn=true, aiSpeed=310*dpr, aiReact=0.085, aiTimer=0, aiAimY=0;
 
-// Bias
+// bias
 const playerHitboxBonus=10*dpr, aiHitboxTight=8*dpr;
 
-// Trail
+// trail
 const trail=[];
 
-// Spin
+// spin
 let lastPointerY=null, pointerVy=0;
 
-// Anti-stall
+// anti-stall
 let flatTimer=0;
 
-// Points (hidden during play; shown only on win)
+// points (shown only on win)
 let points=0;
 const PTS_HIT=5, PTS_GOAL=100, PTS_WIN=250;
 
@@ -289,7 +424,7 @@ function resize(){
   noScoreUntil = performance.now()+250;
   draw();
 }
-addEventListener('resize', ()=>{ if (document.getElementById('page-game').classList.contains('active')) resize(); });
+addEventListener('resize', ()=>{ if (PAGES.game.classList.contains('active')) resize(); });
 
 /* ========= Helpers ========= */
 const clamp=(v,min,max)=>v<min?min:v>max?max:v;
@@ -382,16 +517,13 @@ function step(dt){
   const oldX=ball.x, r=ball.r*dpr;
   ball.x += ball.vx*dt; ball.y += ball.vy*dt;
 
-  // trail + anti-stall
   trail.push({x:ball.x,y:ball.y}); if (trail.length>10) trail.shift();
   if (Math.abs(ball.vy) < 30*dpr) flatTimer += dt; else flatTimer = 0;
   if (flatTimer > 1.0) { ball.vy += (Math.random()>0.5?1:-1)*50*dpr; flatTimer = 0; }
 
-  // walls
   if (ball.y < r){ ball.y = r; ball.vy *= -1; }
   if (ball.y > H - r){ ball.y = H - r; ball.vy *= -1; }
 
-  // paddles (with fairness)
   const px=22*dpr, ax=W-(22*dpr + paddle.w);
   const pTop=(playerY - paddle.h/2) - playerHitboxBonus, pBot=(playerY + paddle.h/2) + playerHitboxBonus;
   const aTop=(oppY    - paddle.h/2) + aiHitboxTight,     aBot=(oppY    + paddle.h/2) - aiHitboxTight;
@@ -402,11 +534,9 @@ function step(dt){
       const t=(ball.y - playerY)/(paddle.h/2);
       ball.vx = Math.abs(ball.vx)*1.02;
       ball.vy = (ball.vy*0.45) + (t*240*dpr);
-      // spin
       ball.vy += pointerVy*5; pointerVy=0;
       clampBounceAndSpeed(+1);
-      // hidden points (paddle hit)
-      points += PTS_HIT;
+      points += PTS_HIT; // hidden during play
       vib(8);
     }
   } else {
@@ -420,7 +550,6 @@ function step(dt){
     }
   }
 
-  // scoring after grace
   if (performance.now() >= noScoreUntil){
     const leftOut  = (ball.vx < 0) && ((oldX + r) >= 0) && ((ball.x + r) < 0);
     const rightOut = (ball.vx > 0) && ((oldX - r) <= W) && ((ball.x - r) > W);
@@ -428,7 +557,6 @@ function step(dt){
     if (rightOut){ score('L'); return; }
   }
 
-  // AI
   if (aiOn){
     aiTimer += dt;
     if (aiTimer >= aiReact){
@@ -454,12 +582,9 @@ function step(dt){
     oppY = clamp(oppY, paddle.h/2, H - paddle.h/2);
   }
 
-  // clamp player
   playerY = clamp(playerY, paddle.h/2, H - paddle.h/2);
-
   draw();
 
-  // net sync (host)
   if (NETMODE==='online-host' && conn && conn.open){
     const now = performance.now();
     if (now - netLastSend > 33){
@@ -482,25 +607,22 @@ function clampBounceAndSpeed(dirSign){
 }
 
 /* ========= Score / End ========= */
-function score(side){ // 'L' you scored; 'R' AI scored
-  if (side==='L'){ scoreL++; points += PTS_GOAL; } else { scoreR++; }
+function score(side){
+  if (side==='L'){ scoreL++; points += 100; } else { scoreR++; }
   scoreEl.textContent = `${scoreL} : ${scoreR}`;
   scoreEl.classList.remove('bump'); void scoreEl.offsetWidth; scoreEl.classList.add('bump');
 
-  // adaptive AI
   const diff = scoreL - scoreR;
-  if      (diff <= -2){ aiSpeed=280*dpr; aiNoise=34*dpr; aiReact=0.095; ball.r=12; }
-  else if (diff >= 2){  aiSpeed=340*dpr; aiNoise=22*dpr; aiReact=0.075; ball.r=9; }
-  else {                aiSpeed=310*dpr; aiNoise=28*dpr; aiReact=0.085; ball.r=10; }
+  if      (diff <= -2){ aiSpeed=280*dpr; aiReact=0.095; ball.r=12; }
+  else if (diff >= 2){  aiSpeed=340*dpr; aiReact=0.075; ball.r=9; }
+  else {                aiSpeed=310*dpr; aiReact=0.085; ball.r=10; }
 
-  // win by 2
   const lead = Math.abs(scoreL - scoreR);
-  if ((scoreL >= POINTS_TO_WIN || scoreR >= POINTS_TO_WIN) && lead >= 2){
-    // go to result page; show points only if you won
+  if ((scoreL >= 11 || scoreR >= 11) && lead >= 2){
     pauseGame();
     go('result');
     if (scoreL > scoreR){
-      points += PTS_WIN;
+      points += 250;
       resTitle.textContent = 'You win!';
       resPts.textContent = points;
       if (points > best){ best = points; localStorage.setItem('pong_best', String(best)); }
@@ -515,12 +637,10 @@ function score(side){ // 'L' you scored; 'R' AI scored
   }
 
   vib(12);
-  // fair serve: trailing side receives
-  const serveDir = (scoreL < scoreR) ? -1 : 1;
-  resetBall(serveDir);
+  resetBall( (scoreL < scoreR) ? -1 : 1 ); // serve to trailing side
 }
 
-/* ========= Loop control ========= */
+/* ========= Loop ========= */
 function loop(ts){
   const dt = Math.min(0.02, ((last===0? ts-16 : ts) - last)/1000 || 0.016);
   last = ts;
@@ -528,53 +648,20 @@ function loop(ts){
   if (running) rafId = requestAnimationFrame(loop);
 }
 function startGame(){
-  // switch to game page and init
   go('game');
   NETMODE='single'; aiOn=true;
   scoreL=0; scoreR=0; points=0;
   playerY=H/2; oppY=H/2; ball.r=10; flatTimer=0;
-  aiSpeed=300*dpr; aiNoise=30*dpr; aiReact=0.09;
-  resize(); // ensure canvas matches game page size
-  resetBall(-1); // first serve to player
+  aiSpeed=300*dpr; aiReact=0.09;
+  resize(); resetBall(-1);
   paused=false; running=true; last=0;
   if (rafId) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(loop);
 }
-function pauseGame(){
-  running=false; paused=true;
-  if (rafId) cancelAnimationFrame(rafId);
-  rafId=null;
-}
+function pauseGame(){ running=false; paused=true; if (rafId) cancelAnimationFrame(rafId); rafId=null; }
+function startSingleIfNeeded(){ if (NETMODE==='single' && !running) startGame(); }
 
-/* ========= Buttons ========= */
-btnSingle.addEventListener('click', ()=>{ startGame(); });
-
-btnFind.addEventListener('click', ()=>{
-  if (!window.Peer){ showToast('Loading network libs…'); return; }
-  showToast('Looking for an opponent…');
-  findMatchOnline(); // switches to game inside when connected
-});
-
-btnLB.addEventListener('click', async ()=>{
-  go('leaderboard');
-  await loadLeaderboard();
-});
-btnLBBack.addEventListener('click', ()=>{ go('home'); });
-
-btnAgain.addEventListener('click', ()=>{ startGame(); });
-btnHome.addEventListener('click', ()=>{ go('home'); });
-btnShare.addEventListener('click', ()=>{
-  const text = (resPts.textContent==='—') ? `I just played Pong!` : `I won Pong with ${resPts.textContent} pts!`;
-  try{
-    if (navigator.share){ navigator.share({ text, url: location.href }); }
-    else { navigator.clipboard.writeText(text + ' ' + location.href); showToast('Copied to clipboard'); }
-  }catch(e){ showToast('Share unavailable'); }
-});
-
-/* ========= Leaderboard (optional backend) =========
-   POST /api/leaderboard/submit { fid, points, username, pfpUrl }
-   GET  /api/leaderboard/top?limit=20 -> [{ fid, points, username, pfpUrl }]
-*/
+/* ========= Leaderboard backend (optional) ========= */
 async function submitScore(points){
   if (!me) return;
   try{
@@ -613,13 +700,10 @@ function renderLB(rows){
 
 /* ========= Online Classic (optional) ========= */
 function findMatchOnline(){
-  // move to game page early to avoid home overlay showing
-  go('game');
-  resize();
+  go('game'); resize();
   isHost=false; peer=new Peer();
   peer.on('connection', c=>{
     NETMODE='online-host'; aiOn=false; conn=c;
-    // start game loop
     scoreL=0; scoreR=0; points=0; playerY=H/2; oppY=H/2; ball.r=10;
     resetBall(-1);
     paused=false; running=true; last=0;
@@ -651,12 +735,28 @@ function onNetDataFromHost(msg){
   if (msg.t==='st'){ ball.x=msg.x; ball.y=msg.y; ball.vx=msg.vx; ball.vy=msg.vy; playerY=msg.p1; oppY=msg.p2; scoreL=msg.sl; scoreR=msg.sr; scoreEl.textContent = `${scoreL} : ${scoreR}`; if (W!==msg.w||H!==msg.h) resize(); draw(); }
 }
 
+/* ========= Buttons ========= */
+btnSingle.addEventListener('click', ()=> startGame());
+btnFind.addEventListener('click', ()=>{
+  if (!window.Peer){ showToast('Loading network libs…'); return; }
+  showToast('Looking for an opponent…'); findMatchOnline();
+});
+btnLB.addEventListener('click', async ()=>{ go('leaderboard'); await loadLeaderboard(); });
+btnLBBack.addEventListener('click', ()=> go('home'));
+btnAgain.addEventListener('click', ()=> startGame());
+btnHome.addEventListener('click', ()=> go('home'));
+btnShare.addEventListener('click', ()=>{
+  const text = (resPts.textContent==='—') ? `I just played Pong!` : `I won Pong with ${resPts.textContent} pts!`;
+  try{ if (navigator.share){ navigator.share({ text, url: location.href }); }
+       else { navigator.clipboard.writeText(text + ' ' + location.href); showToast('Copied'); } }
+  catch(e){ showToast('Share unavailable'); }
+});
+
 /* ========= Boot ========= */
-function init(){ // start on home; canvas not running
-  // set player badges for game page
-  const setBadge=(imgEl,nameEl,obj,fb)=>{ if(obj){ nameEl.textContent=obj.displayName||obj.username||('fid '+obj.fid); if(obj.pfpUrl){ imgEl.src=obj.pfpUrl; imgEl.alt=nameEl.textContent; } } else { nameEl.textContent=fb||'Guest'; } };
+function init(){
+  // set badges on game HUD
+  const setBadge=(imgEl,nameEl,obj,fb)=>{ if(obj){ nameEl.textContent=obj.displayName||obj.username||('fid '+obj.fid); if(obj.pfpUrl){ imgEl.src=obj.pfpUrl; imgEl.alt=nameEl.textContent; } } else { nameEl.textContent=fb||'You'; } };
   setBadge(p1img, p1name, me, 'You'); p2name.textContent='CPU'; p2tag.textContent='AI';
-  // size canvas only when entering game; still okay to size now
   resize(); draw();
 }
 init();
