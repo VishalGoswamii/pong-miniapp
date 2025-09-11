@@ -21,7 +21,7 @@
   }
 }' />
 
-<!-- Optional: PeerJS for Online (we’ll lazy-load if needed too) -->
+<!-- Optional: PeerJS for Online (we also lazy-load if needed) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js" defer></script>
 
 <style>
@@ -238,7 +238,7 @@ canvas{display:block; width:100%; height:100%; touch-action:none}
 <script>
 'use strict';
 
-/* ========= sdk.actions.ready() helper (called on boot & on page switches) ========= */
+/* ========= sdk.actions.ready() helper ========= */
 function ensureReady(){
   function callReadyFrom(obj){ try{ if(obj && obj.actions && typeof obj.actions.ready==='function'){ obj.actions.ready(); return true; } }catch(e){} return false; }
   if (callReadyFrom(window.__fc_sdk)) return true;
@@ -261,8 +261,8 @@ function go(name){
   Object.values(PAGES).forEach(p=>p.classList.remove('active'));
   PAGES[name].classList.add('active');
   if (name !== 'game') pauseGame();
-  ensureReady(); // call on every navigation
-  hydrateUser(1500); // refresh name/pfp soon after navigation
+  ensureReady();
+  hydrateUser(1500);
 }
 
 /* ========= DOM ========= */
@@ -359,6 +359,7 @@ const PTS_HIT=5, PTS_GOAL=100, PTS_WIN=250;
 
 // serve state for countdown
 let serving=false; let serveStore=null;
+let countdownActive = false; // NEW: track countdown life
 
 /* ========= Resize ========= */
 function resize(){
@@ -389,23 +390,46 @@ addEventListener('resize', ()=>{ if (PAGES.game.classList.contains('active')) re
 const clamp=(v,min,max)=>v<min?min:v>max?max:v;
 const css=(n)=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
-/* Promise-based 3-2-1 countdown (no leaking intervals) */
-function startCountdown(){
-  return new Promise(resolve=>{
-    const seq=[3,2,1];
-    let i=0;
+/* ========= Countdown (RAF-based + watchdog) ========= */
+function startCountdown(stepMs = 600){
+  return new Promise(resolve => {
+    if (countdownActive){
+      countdownEl.classList.remove('show');
+      countdownEl.innerHTML = '';
+      countdownActive = false;
+    }
+    countdownActive = true;
+    const start = performance.now();
     countdownEl.classList.add('show');
-    const next=()=>{
-      if (i<seq.length){
-        countdownEl.innerHTML = `<div class="count">${seq[i++]}</div>`;
-        setTimeout(next, 600);
-      } else {
-        countdownEl.classList.remove('show');
-        countdownEl.innerHTML='';
-        resolve();
-      }
+
+    const drawCount = (n) => {
+      countdownEl.innerHTML = `<div class="count">${n}</div>`;
     };
-    next();
+
+    function tick(now){
+      const elapsed = now - start;
+      if (elapsed < stepMs)        drawCount(3);
+      else if (elapsed < 2*stepMs) drawCount(2);
+      else if (elapsed < 3*stepMs) drawCount(1);
+      else {
+        countdownEl.classList.remove('show');
+        countdownEl.innerHTML = '';
+        countdownActive = false;
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    // Watchdog: if RAF/timers get throttled, forcibly resolve
+    setTimeout(() => {
+      if (!countdownActive) return;
+      countdownEl.classList.remove('show');
+      countdownEl.innerHTML = '';
+      countdownActive = false;
+      resolve();
+    }, 3*stepMs + 1200);
   });
 }
 
@@ -428,10 +452,20 @@ function resetBall(dir=1){
 
   // show 3-2-1, then release the ball
   startCountdown().then(()=>{
+    if (!running) return; // user navigated away
     serving=false;
     ball.vx=serveStore.vx; ball.vy=serveStore.vy;
     noScoreUntil=performance.now()+350;
   });
+
+  // Failsafe release if timers/RAF were throttled
+  setTimeout(()=>{
+    if (serving){
+      serving=false;
+      ball.vx=serveStore.vx; ball.vy=serveStore.vy;
+      noScoreUntil=performance.now()+350;
+    }
+  }, 4000);
 }
 
 /* ========= Input ========= */
@@ -534,7 +568,7 @@ function step(dt){
   if (ball.y < r){ ball.y = r; ball.vy *= -1; }
   if (ball.y > H - r){ ball.y = H - r; ball.vy *= -1; }
 
-  // paddles (only when ball is moving horizontally)
+  // paddles
   const px=22*dpr, ax=W-(22*dpr + paddle.w);
   const pTop=(playerY - paddle.h/2) - playerHitboxBonus, pBot=(playerY + paddle.h/2) + playerHitboxBonus;
   const aTop=(oppY    - paddle.h/2) + aiHitboxTight,     aBot=(oppY    + paddle.h/2) - aiHitboxTight;
@@ -622,7 +656,7 @@ function clampBounceAndSpeed(dirSign){
 
 /* ========= Score / End ========= */
 function score(side){
-  if (side==='L'){ scoreL++; points += 100; } else { scoreR++; }
+  if (side==='L'){ scoreL++; points += PTS_GOAL; } else { scoreR++; }
   scoreEl.textContent = `${scoreL} : ${scoreR}`;
   scoreEl.classList.remove('bump'); void scoreEl.offsetWidth; scoreEl.classList.add('bump');
 
@@ -636,7 +670,7 @@ function score(side){
     pauseGame();
     go('result');
     if (scoreL > scoreR){
-      points += 250;
+      points += PTS_WIN;
       resTitle.textContent = 'You win!';
       resPts.textContent = points;
       if (points > best){ best = points; localStorage.setItem('pong_best', String(best)); }
@@ -718,14 +752,11 @@ function renderLB(rows){
 /* ========= Online Classic (optional) ========= */
 function findMatchOnline(){
   go('game'); resize();
-
   isHost=false; peer=new Peer();
 
   peer.on('connection', c=>{
     NETMODE='online-host'; aiOn=false; conn=c;
-    // labels
     p2name.textContent = 'Opponent'; p2tag.textContent = 'P2';
-
     scoreL=0; scoreR=0; points=0; playerY=H/2; oppY=H/2; ball.r=10;
     resetBall(-1);
     paused=false; running=true; last=0;
@@ -747,9 +778,7 @@ function findMatchOnline(){
 
     if (resp?.opponentPeerId){
       NETMODE='online-guest'; aiOn=false;
-      // labels
       p2name.textContent = 'Host'; p2tag.textContent = 'P1';
-
       conn = peer.connect(resp.opponentPeerId);
       conn.on('open',()=>{ paused=false; running=true; last=0; if (rafId) cancelAnimationFrame(rafId); rafId = requestAnimationFrame(loop); });
       conn.on('data', onNetDataFromHost);
@@ -771,17 +800,13 @@ function onNetDataFromHost(msg){
   if (msg.t === 'st') {
     // scale host coordinates to local canvas
     const sx = W / msg.w, sy = H / msg.h;
-
-    // ball pos/vel scaled
     ball.x = msg.x * sx;
     ball.y = msg.y * sy;
     ball.vx = msg.vx * sx;
     ball.vy = msg.vy * sy;
-
     // YOU are P2 on the guest; host is P1
     playerY = msg.p2 * sy;
     oppY    = msg.p1 * sy;
-
     scoreL = msg.sl; scoreR = msg.sr;
     scoreEl.textContent = `${scoreL} : ${scoreR}`;
     draw();
@@ -799,10 +824,7 @@ btnFind.addEventListener('click', async ()=>{
     document.head.appendChild(s);
     await new Promise(r => s.onload = r);
   }
-
-  // Update HUD labels for online mode immediately
   p2name.textContent = 'Opponent'; p2tag.textContent = 'P2';
-
   showToast('Looking for an opponent…');
   findMatchOnline();
 });
@@ -823,12 +845,12 @@ function init(){
   const setBadge=(imgEl,nameEl,obj,fb)=>{ if(obj){ nameEl.textContent=obj.displayName||obj.username||('fid '+obj.fid); if(obj.pfpUrl){ imgEl.src=obj.pfpUrl; imgEl.alt=nameEl.textContent; } } else { nameEl.textContent=fb||'You'; } };
   setBadge(p1img, p1name, me, 'You'); p2name.textContent='CPU'; p2tag.textContent='AI';
   resize(); draw();
-  ensureReady(); // call at boot
-  hydrateUser(); // hydrate Farcaster user soon
+  ensureReady();
+  hydrateUser();
 }
 init();
 
-/* ========= Also try Farcaster ready ASAP again ========= */
+/* ========= Try Farcaster ready ASAP again ========= */
 (function(){ ensureReady(); })();
 </script>
 </body>
