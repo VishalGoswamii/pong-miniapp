@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>Pong • Classic</title>
 
-<!-- Farcaster Mini App + Frame (for visible embed in casts) -->
+<!-- Farcaster Mini App -->
 <meta name="fc:miniapp" content='{
   "version": "1",
   "imageUrl": "https://pong-miniapp.vercel.app/og.png",
@@ -20,22 +20,8 @@
     }
   }
 }' />
-<meta name="fc:frame" content='{
-  "version": "next",
-  "imageUrl": "https://pong-miniapp.vercel.app/og.png",
-  "button": {
-    "title": "Play Now",
-    "action": {
-      "type": "launch_frame",
-      "name": "Pong",
-      "url": "https://pong-miniapp.vercel.app/",
-      "splashImageUrl": "https://pong-miniapp.vercel.app/icon-200.png",
-      "splashBackgroundColor": "#0b0f1a"
-    }
-  }
-}' />
 
-<!-- Optional: PeerJS for Online (we also lazy-load if needed) -->
+<!-- Optional: PeerJS for Online (lazy-loaded if needed) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js" defer></script>
 
 <style>
@@ -85,7 +71,7 @@ html,body{margin:0;height:100%;background:var(--bg-deep);color:var(--text-hi);
   background:var(--card-bg);
   border:1px solid var(--card-bd);
   border-radius:20px;
-  box-shadow:0 30px 90px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.06);
+  box-shadow:0 20px 60px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06);
   padding:18px 16px 16px;
 }
 .pixel-banner{ display:flex; flex-direction:column; align-items:center; gap:10px; padding:8px 8px 14px }
@@ -93,7 +79,7 @@ html,body{margin:0;height:100%;background:var(--bg-deep);color:var(--text-hi);
   display:inline-block; padding:10px 16px; border-radius:12px;
   background:linear-gradient(180deg, #0f162c, #0b1222);
   border:1px solid rgba(255,255,255,.14);
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,.05), 0 10px 28px rgba(0,0,0,.45);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.05), 0 10px 28px rgba(0,0,0,.35);
 }
 .pixel-logo{
   font-weight:1000; letter-spacing:2px; font-size:26px; color:#e7f3ff;
@@ -109,7 +95,7 @@ html,body{margin:0;height:100%;background:var(--bg-deep);color:var(--text-hi);
   appearance:none; border-radius:14px; padding:14px 16px; font-weight:1000; font-size:16px; cursor:pointer;
   border:1px solid var(--btn-border); color:var(--text-hi);
   background:linear-gradient(180deg, var(--btn-grad-top), var(--btn-grad-bot));
-  box-shadow:0 10px 26px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06);
+  box-shadow:0 10px 26px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.06);
   transition:transform .06s ease, filter .12s ease;
 }
 .btn:hover{ filter:brightness(1.05) }
@@ -117,7 +103,7 @@ html,body{margin:0;height:100%;background:var(--bg-deep);color:var(--text-hi);
 .btn-primary{
   background:linear-gradient(180deg, var(--btn-pr-top), var(--btn-pr-bot));
   color:#06111d; text-shadow:0 1px 0 rgba(255,255,255,.35);
-  box-shadow:0 14px 40px rgba(26,156,255,.45), inset 0 0 0 1px rgba(255,255,255,.20);
+  box-shadow:0 14px 30px rgba(26,156,255,.35), inset 0 0 0 1px rgba(255,255,255,.18);
 }
 .hint{ margin-top:6px; text-align:center; color:var(--text-lo); font-size:12px }
 
@@ -128,33 +114,28 @@ canvas{display:block; width:100%; height:100%; touch-action:none}
 #hud{position:absolute; inset:0; pointer-events:none}
 #score{
   position:absolute; top:calc(env(safe-area-inset-top) + 10px); left:50%; transform:translateX(-50%);
-  color:#fff; font-weight:1000; letter-spacing:1.2px; font-size:26px; padding:8px 14px; border-radius:16px;
-  background:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,.07));
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,.16), 0 14px 40px rgba(0,0,0,.45)
+  color:#fff; font-weight:1000; letter-spacing:1.2px; font-size:24px; padding:6px 10px; border-radius:12px;
+  background:rgba(255,255,255,.12);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)
 }
-#score.bump{animation:bump .18s ease} @keyframes bump{50%{transform:translateX(-50%) scale(1.08)}}
-#players{position:absolute; top:calc(env(safe-area-inset-top) + 54px); left:0; right:0; display:flex; justify-content:space-between; padding:0 10px}
-.pb{display:flex; align-items:center; gap:8px; background:rgba(12,18,32,.6); border:1px solid rgba(255,255,255,.14);
+#players{position:absolute; top:calc(env(safe-area-inset-top) + 48px); left:0; right:0; display:flex; justify-content:space-between; padding:0 10px}
+.pb{display:flex; align-items:center; gap:8px; background:rgba(12,18,32,.5); border:1px solid rgba(255,255,255,.14);
   color:#eaf3ff; padding:6px 10px; border-radius:999px; min-width:120px}
 .pb img{width:24px;height:24px;border-radius:999px;object-fit:cover;background:#0f172a}
 .pb .name{font-weight:800;font-size:13px}
 .pb .tag{font-size:12px;opacity:.8}
 #hint{position:absolute; bottom:calc(env(safe-area-inset-bottom) + 10px); left:0; right:0; text-align:center; color:#e7f2ff; font-size:13px; opacity:.9}
 
-/* COUNTDOWN overlay */
-#countdown{
-  position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:none;
-  font-weight:1000; font-size:80px; color:#fff; text-shadow:0 6px 20px rgba(0,0,0,.45);
+/* Lightweight in-game share bar */
+#shareBar{
+  position:absolute; top:calc(env(safe-area-inset-top) + 10px); right:10px; display:flex; gap:6px;
+  pointer-events:auto;
 }
-#countdown.show{ display:flex; animation:fadeIn .12s ease }
-.count{
-  background:linear-gradient(180deg, #ffffff, #e9efff);
-  -webkit-background-clip:text; background-clip:text; color:transparent;
-  filter: drop-shadow(0 4px 16px rgba(110,168,255,.45));
-  animation:pop .6s ease;
+.chip{
+  appearance:none; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.1);
+  color:#fff; font-size:12px; font-weight:800; border-radius:10px; padding:6px 10px; cursor:pointer;
 }
-@keyframes pop{ 0%{transform:scale(.6); opacity:0;} 20%{opacity:1} 60%{transform:scale(1.12);} 100%{transform:scale(1);} }
-@keyframes fadeIn{ from{opacity:0} to{opacity:1} }
+.chip:active{ transform:translateY(1px) }
 
 /* ===== RESULT / LEADERBOARD ===== */
 #page-result, #page-leaderboard{
@@ -163,7 +144,7 @@ canvas{display:block; width:100%; height:100%; touch-action:none}
 }
 .card2{
   background:var(--card-bg); border:1px solid var(--card-bd); color:var(--text-hi);
-  border-radius:18px; padding:22px; box-shadow:0 28px 90px rgba(0,0,0,.55); width:100%; max-width:680px;
+  border-radius:18px; padding:22px; box-shadow:0 24px 70px rgba(0,0,0,.5); width:100%; max-width:680px;
 }
 .title{font-size:28px;font-weight:1000}
 .sub{margin-top:4px;opacity:.85;font-size:14px}
@@ -219,8 +200,11 @@ canvas{display:block; width:100%; height:100%; touch-action:none}
       <div class="pb"><img id="p1img" alt=""><div><div class="name" id="p1name">You</div><div class="tag">P1</div></div></div>
       <div class="pb"><img id="p2img" alt=""><div><div class="name" id="p2name">CPU</div><div class="tag" id="p2tag">AI</div></div></div>
     </div>
+    <div id="shareBar">
+      <button id="btnCastScore" class="chip">Cast</button>
+      <button id="btnShareScore" class="chip">Share</button>
+    </div>
     <div id="hint">Round starts after 3-2-1.</div>
-    <div id="countdown" aria-live="assertive"><div class="count">3</div></div>
   </div>
 </section>
 
@@ -295,6 +279,8 @@ const btnAgain = document.getElementById('btnAgain');
 const btnHome = document.getElementById('btnHome');
 const btnShare = document.getElementById('btnShare');
 const btnCast = document.getElementById('btnCast');
+const btnCastScore = document.getElementById('btnCastScore');
+const btnShareScore = document.getElementById('btnShareScore');
 
 const pfp = document.getElementById('pfp');
 const uname = document.getElementById('uname');
@@ -302,13 +288,12 @@ const bestHome = document.getElementById('bestHome');
 const resTitle = document.getElementById('resTitle');
 const resPts = document.getElementById('resPts');
 const lbList = document.getElementById('lbList');
-const countdownEl = document.getElementById('countdown');
 
 const toast = document.getElementById('toast');
 const vib = (ms)=>{ try{ if(navigator.vibrate) navigator.vibrate(ms);}catch(e){} };
 const showToast=(t)=>{ toast.textContent=t; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 2200); };
 
-/* ========= Farcaster user (hydrated later) ========= */
+/* ========= Farcaster user ========= */
 function readMiniUser(){
   try{
     const c1 = window.__fc_sdk && window.__fc_sdk.context;
@@ -342,7 +327,8 @@ let best = Number(localStorage.getItem('pong_best') || 0);
 bestHome.textContent = `Best: ${best} pts`;
 
 /* ========= Game State ========= */
-let dpr = Math.max(1, Math.min(2, window.devicePixelRatio||1)); // mutable DPR
+const DPR_CAP = 1.25; // cheaper pixels inside embedded webviews
+let dpr = Math.max(1, Math.min(DPR_CAP, window.devicePixelRatio||1));
 let W=0, H=0, last=0, running=false, rafId=null, paused=false, noScoreUntil=0, NETMODE='home';
 let peer=null, conn=null, isHost=false, netLastSend=0;
 
@@ -352,44 +338,68 @@ let playerY=0, oppY=0;
 const ball = { x:0, y:0, r:10, vx:0, vy:0, baseSpeed:360 };
 
 let scoreL=0, scoreR=0;
-const POINTS_TO_WIN = 7; // First to 7 wins
+const POINTS_TO_WIN = 7; // first to 7
 
 // AI
-let aiOn=true, aiSpeed=310*dpr, aiReact=0.085, aiTimer=0, aiAimY=0, aiNoise=28*dpr;
+let aiOn=true, aiSpeed=310*dpr, aiReact=0.085, aiTimer=0, aiAimY=0;
 
-// fairness (mutable with DPR)
+// fairness
 let playerHitboxBonus=10*dpr, aiHitboxTight=8*dpr;
-
-// trail
-const trail=[];
-
-// spin swipe
-let lastPointerY=null, pointerVy=0;
 
 // anti-stall
 let flatTimer=0;
-
-// render throttle during countdown
-let lastDrawAt = 0;
 
 // points (shown only on win)
 let points=0;
 const PTS_HIT=5, PTS_GOAL=100, PTS_WIN=250;
 
-// serve state for countdown
-let serving=false; let serveStore=null;
-let countdownActive = false;
+// serve & countdown (canvas-based)
+let serving=false, serveStore=null, countdownUntil=0;
+
+// palette & cached court
+let pal={}, courtCVS=null, courtCTX=null;
 
 /* ========= Resize ========= */
+function readVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function readPalette(){
+  pal.outer=readVar('--courtOuter'); pal.main=readVar('--courtMain'); pal.kitchen=readVar('--courtKitchen');
+  pal.line=readVar('--courtLine'); pal.centerRed=readVar('--centerRed');
+  pal.ball=readVar('--ballY'); pal.paddleFace=readVar('--paddleFace'); pal.paddleEdge=readVar('--paddleEdge');
+}
+
+function renderCourtCache(){
+  if (!courtCVS){ courtCVS=document.createElement('canvas'); courtCTX=courtCVS.getContext('2d',{alpha:false}); }
+  courtCVS.width=W; courtCVS.height=H;
+  const c=courtCTX, kW = W*(7/44);
+
+  c.fillStyle=pal.outer; c.fillRect(0,0,W,H);
+  c.fillStyle=pal.main;  c.fillRect(0,0,W,H);
+
+  // kitchens
+  c.fillStyle=pal.kitchen; c.fillRect(W/2 - kW, 0, kW, H); c.fillRect(W/2, 0, kW, H);
+
+  // lines
+  c.save();
+  c.strokeStyle=pal.line; c.lineWidth=3*dpr; c.lineCap='square';
+  c.strokeRect(1.5*dpr,1.5*dpr,W-3*dpr,H-3*dpr);
+  // center dashed
+  c.setLineDash([10*dpr,14*dpr]); c.strokeStyle=pal.centerRed; c.beginPath(); c.moveTo(W/2,0); c.lineTo(W/2,H); c.stroke();
+  c.setLineDash([]);
+  c.strokeStyle=pal.line;
+  c.beginPath(); c.moveTo(W/2 - kW,0); c.lineTo(W/2 - kW,H); c.stroke();
+  c.beginPath(); c.moveTo(W/2 + kW,0); c.lineTo(W/2 + kW,H); c.stroke();
+  c.beginPath(); c.moveTo(0,H/2); c.lineTo(W,H/2); c.stroke();
+  c.restore();
+}
+
 function resize(){
   // refresh DPR on rotation/zoom
-  const ndpr = Math.max(1, Math.min(2, window.devicePixelRatio||1));
+  const ndpr = Math.max(1, Math.min(DPR_CAP, window.devicePixelRatio||1));
   if (ndpr !== dpr){
     dpr = ndpr;
     paddle.w = 4*dpr;
     playerHitboxBonus = 10*dpr;
     aiHitboxTight = 8*dpr;
-    aiNoise = 28*dpr;
   }
 
   const w = innerWidth, h = innerHeight;
@@ -401,104 +411,27 @@ function resize(){
   paddle.h = Math.max(56*dpr, Math.min(H*0.16, 86*dpr))*0.90;
   if (!running && last===0){ playerY=H/2; oppY=H/2; ball.x=W/2; ball.y=H/2; }
   noScoreUntil = performance.now()+250;
+
+  readPalette();
+  renderCourtCache();
   draw();
 }
 addEventListener('resize', ()=>{ if (PAGES.game.classList.contains('active')) resize(); });
 
-/* ========= Helpers ========= */
-const clamp=(v,min,max)=>v<min?min:v>max?max:v;
-const css=(n)=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-
-/* ========= Countdown (RAF-based + watchdog) ========= */
-function startCountdown(stepMs = 600){
-  return new Promise(resolve => {
-    if (countdownActive){
-      countdownEl.classList.remove('show');
-      countdownEl.innerHTML = '';
-      countdownActive = false;
-    }
-    countdownActive = true;
-    const start = performance.now();
-    countdownEl.classList.add('show');
-
-    const drawCount = (n) => { countdownEl.innerHTML = `<div class="count">${n}</div>`; };
-
-    function tick(now){
-      const elapsed = now - start;
-      if (elapsed < stepMs)        drawCount(3);
-      else if (elapsed < 2*stepMs) drawCount(2);
-      else if (elapsed < 3*stepMs) drawCount(1);
-      else {
-        countdownEl.classList.remove('show');
-        countdownEl.innerHTML = '';
-        countdownActive = false;
-        resolve();
-        return;
-      }
-      requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-
-    // Watchdog: if RAF/timers get throttled, forcibly resolve
-    setTimeout(() => {
-      if (!countdownActive) return;
-      countdownEl.classList.remove('show');
-      countdownEl.innerHTML = '';
-      countdownActive = false;
-      resolve();
-    }, 3*stepMs + 1200);
-  });
-}
-
-function resetBall(dir=1){
-  // center everything each round
-  ball.x=W/2; ball.y=H/2;
-  playerY=H/2; oppY=H/2;
-
-  // compute serve velocity but hold it until countdown completes
-  const angle=(Math.random()*0.5 - 0.25);
-  const sp = ball.baseSpeed * dpr;
-  serveStore = { vx: Math.cos(angle)*sp*dir, vy: Math.sin(angle)*sp };
-
-  // freeze ball while counting
-  ball.vx=0; ball.vy=0; serving=true;
-  trail.length=0;
-
-  // grace until after countdown so early walls/outs don't count
-  noScoreUntil=performance.now()+4000;
-
-  // show 3-2-1, then release the ball
-  startCountdown().then(()=>{
-    if (!running) return; // user navigated away
-    serving=false;
-    ball.vx=serveStore.vx; ball.vy=serveStore.vy;
-    noScoreUntil=performance.now()+350;
-  });
-
-  // Failsafe release if timers/RAF were throttled
-  setTimeout(()=>{
-    if (serving){
-      serving=false;
-      ball.vx=serveStore.vx; ball.vy=serveStore.vy;
-      noScoreUntil=performance.now()+350;
-    }
-  }, 4000);
-}
-
 /* ========= Input ========= */
+let lastPointerY=null, pointerVy=0;
 function updateFromPointerLike(clientY){
   const r = canvas.getBoundingClientRect();
   const y = (clientY - r.top) * dpr;
   if (lastPointerY != null) pointerVy = (y - lastPointerY);
   lastPointerY = y;
-  playerY = clamp(y, paddle.h/2, H - paddle.h/2);
+  playerY = Math.max(paddle.h/2, Math.min(H - paddle.h/2, y));
   if (NETMODE==='online-guest' && conn && conn.open) { try{ conn.send({ t:'in', y: playerY }); }catch(e){} }
 }
 const onPointer=(e)=>{ updateFromPointerLike(e.clientY); e.preventDefault(); };
 const onTouch=(e)=>{ if (!e.touches?.[0]) return; updateFromPointerLike(e.touches[0].clientY); e.preventDefault(); };
 
 let dragging=false;
-// Pointer/Touch dedupe: prefer Pointer Events; fallback to Touch
 const USE_POINTER = 'onpointerdown' in window;
 if (USE_POINTER) {
   canvas.addEventListener('pointerdown',(e)=>{dragging=true; if(!running) startSingleIfNeeded(); onPointer(e);},{passive:false});
@@ -511,26 +444,11 @@ if (USE_POINTER) {
   canvas.addEventListener('touchend',()=>{dragging=false; lastPointerY=null; pointerVy=0;},{passive:true});
   canvas.addEventListener('touchcancel',()=>{dragging=false; lastPointerY=null; pointerVy=0;},{passive:true});
 }
-
 function startSingleIfNeeded(){ if (NETMODE==='single' && !running) startGame(); }
 
 /* ========= Render ========= */
-function drawCourt(){
-  ctx.fillStyle=css('--courtOuter'); ctx.fillRect(0,0,W,H);
-  ctx.fillStyle=css('--courtMain');  ctx.fillRect(0,0,W,H);
-  const kW = W * (7/44);
-  ctx.fillStyle=css('--courtKitchen'); ctx.fillRect(W/2 - kW, 0, kW, H); ctx.fillRect(W/2, 0, kW, H);
-  ctx.save(); ctx.strokeStyle=css('--courtLine'); ctx.lineWidth=3*dpr; ctx.lineCap='square';
-  ctx.strokeRect(1.5*dpr,1.5*dpr,W-3*dpr,H-3*dpr);
-  ctx.setLineDash([10*dpr,14*dpr]); ctx.strokeStyle=css('--centerRed'); ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke();
-  ctx.setLineDash([]); ctx.strokeStyle=css('--courtLine');
-  ctx.beginPath(); ctx.moveTo(W/2 - kW,0); ctx.lineTo(W/2 - kW,H); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(W/2 + kW,0); ctx.lineTo(W/2 + kW,H); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0,H/2); ctx.lineTo(W,H/2); ctx.stroke();
-  ctx.restore();
-}
 function drawPaddle(x,y,w,h){
-  ctx.fillStyle=css('--paddleFace');
+  ctx.fillStyle=pal.paddleFace;
   const r=Math.min(6*dpr,w);
   ctx.beginPath();
   ctx.moveTo(x, y-h/2+r);
@@ -539,45 +457,72 @@ function drawPaddle(x,y,w,h){
   ctx.arcTo(x+w, y+h/2, x, y+h/2, r);
   ctx.arcTo(x, y+h/2, x, y-h/2, r);
   ctx.closePath(); ctx.fill();
-  ctx.lineWidth=1*dpr; ctx.strokeStyle=css('--paddleEdge'); ctx.stroke();
+  ctx.lineWidth=1*dpr; ctx.strokeStyle=pal.paddleEdge; ctx.stroke();
 }
 function drawBall(){
-  for (let i=0;i<trail.length;i++){
-    const t=i/trail.length;
-    ctx.globalAlpha=t*0.5;
-    ctx.beginPath(); ctx.arc(trail[i].x, trail[i].y, (ball.r*dpr)*(0.6+0.4*t), 0, Math.PI*2);
-    ctx.fillStyle=css('--ballY'); ctx.fill();
-  }
-  ctx.globalAlpha=1;
   const rr=ball.r*dpr;
-  ctx.fillStyle=css('--ballY'); ctx.beginPath(); ctx.arc(ball.x, ball.y, rr, 0, Math.PI*2); ctx.fill();
-  ctx.lineWidth=1.2*dpr; ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.arc(ball.x, ball.y, rr, 0, Math.PI*2); ctx.stroke();
+  ctx.fillStyle=pal.ball;
+  ctx.beginPath(); ctx.arc(ball.x, ball.y, rr, 0, Math.PI*2); ctx.fill();
+}
+function drawCountdown(now){
+  if (!serving) return;
+  const rem = Math.max(0, countdownUntil - now);
+  const n = Math.ceil(rem/600);
+  if (n >= 1){
+    ctx.save();
+    ctx.fillStyle='#fff';
+    ctx.font = `bold ${Math.round(70*dpr)}px ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.globalAlpha = 0.95;
+    ctx.fillText(String(n), W/2, H/2);
+    ctx.restore();
+  }
 }
 function draw(){
-  drawCourt();
+  // cached court
+  ctx.drawImage(courtCVS, 0, 0);
   const px=22*dpr, ax=W-(22*dpr + paddle.w);
   drawPaddle(px, playerY, paddle.w, paddle.h);
   drawPaddle(ax, oppY,     paddle.w, paddle.h);
   drawBall();
+  drawCountdown(performance.now());
+}
+
+/* ========= Countdown/Serve ========= */
+function resetBall(dir=1){
+  // center everything each round
+  ball.x=W/2; ball.y=H/2;
+  playerY=H/2; oppY=H/2;
+
+  // compute serve velocity but hold it until countdown completes
+  const angle=(Math.random()*0.5 - 0.25);
+  const sp = ball.baseSpeed * dpr;
+  serveStore = { vx: Math.cos(angle)*sp*dir, vy: Math.sin(angle)*sp };
+
+  // freeze ball while counting
+  ball.vx=0; ball.vy=0; serving=true;
+  countdownUntil = performance.now() + 1800; // 3 * 600ms
+  // grace to prevent instant score
+  noScoreUntil = performance.now() + 2200;
 }
 
 /* ========= Step ========= */
 function step(dt){
-  const oldX=ball.x, r=ball.r*dpr;
+  const now=performance.now(), r=ball.r*dpr;
 
-  // Freeze physics while serving
+  // release after countdown
+  if (serving && now >= countdownUntil){
+    serving=false;
+    ball.vx=serveStore.vx; ball.vy=serveStore.vy;
+    noScoreUntil = now + 350;
+  }
+
+  // physics (freeze while serving)
   if (!serving){
     ball.x += ball.vx*dt; ball.y += ball.vy*dt;
   }
 
-  // trail (skip while active countdown to reduce jank)
-  if (!serving || !countdownActive){
-    trail.push({x:ball.x,y:ball.y}); if (trail.length>10) trail.shift();
-  } else {
-    if (trail.length) trail.length = 0;
-  }
-
-  // anti-stall (disabled during serving)
+  // anti-stall
   if (!serving){
     if (Math.abs(ball.vy) < 30*dpr) flatTimer += dt; else flatTimer = 0;
     if (flatTimer > 1.0) { ball.vy += (Math.random()>0.5?1:-1)*50*dpr; flatTimer = 0; }
@@ -603,7 +548,7 @@ function step(dt){
       ball.vy += pointerVy*5; pointerVy=0;
       clampBounceAndSpeed(+1);
       points += PTS_HIT;
-      vib(8);
+      vib(6);
     }
   } else if (!serving && ball.vx > 0){
     if (ball.x + r >= ax && ball.x + r <= ax + paddle.w && ball.y >= aTop && ball.y <= aBot){
@@ -612,52 +557,44 @@ function step(dt){
       ball.vx = -Math.abs(ball.vx)*0.98;
       ball.vy = (ball.vy*0.45) + (t*230*dpr);
       clampBounceAndSpeed(-1);
-      vib(6);
+      vib(4);
     }
   }
 
   // scoring after grace
-  if (!serving && performance.now() >= noScoreUntil){
-    const leftOut  = (ball.vx < 0) && ((oldX + r) >= 0) && ((ball.x + r) < 0);
-    const rightOut = (ball.vx > 0) && ((oldX - r) <= W) && ((ball.x - r) > W);
-    if (leftOut){ score('R'); return; }
-    if (rightOut){ score('L'); return; }
+  if (!serving && now >= noScoreUntil){
+    if (ball.x + r < 0){ score('R'); return; }
+    if (ball.x - r > W){ score('L'); return; }
   }
 
-  // AI
+  // AI (cheap)
   if (aiOn){
     aiTimer += dt;
     if (aiTimer >= aiReact){
       aiTimer = 0;
       if (ball.vx > 0){
+        // quick projection (no multiple reflections loop)
         const axX = W - (22*dpr + paddle.w);
-        const timeToReach = Math.max(0.001, (axX - ball.x)/Math.max(80, ball.vx));
-        let projY = ball.y + ball.vy*timeToReach;
-        const hh = H - ball.r*dpr;
-        while (projY < ball.r*dpr || projY > hh){
-          if (projY < ball.r*dpr) projY = ball.r*dpr + (ball.r*dpr - projY);
-          else if (projY > hh)    projY = hh - (projY - hh);
+        const tTo = Math.max(0.001, (axX - ball.x)/Math.max(80, ball.vx));
+        let proj = ball.y + ball.vy*tTo;
+        const hh = H - r;
+        if (proj < r || proj > hh){
+          // reflect once
+          const m = (proj < r) ? r : hh;
+          proj = m - (proj - m);
         }
         const diff = scoreL - scoreR;
-        const baseErr = (diff <= -2)? 34*dpr : (diff >= 2 ? 10*dpr : 20*dpr);
-        const jitter = (Math.random()*2 - 1)*baseErr;
-        aiAimY = clamp(projY + jitter, paddle.h/2, H - paddle.h/2);
-      } else { aiAimY = H/2; }
+        const err = (diff <= -2)? 34*dpr : (diff >= 2 ? 10*dpr : 20*dpr);
+        oppY += Math.max(-aiSpeed*dt, Math.min(aiSpeed*dt, (proj - oppY) + (Math.random()*2-1)*err));
+      } else {
+        oppY += Math.max(-aiSpeed*dt, Math.min(aiSpeed*dt, (H/2 - oppY)));
+      }
+      oppY = Math.max(paddle.h/2, Math.min(H - paddle.h/2, oppY));
     }
-    const dy = aiAimY - oppY;
-    const maxStep = aiSpeed * dt;
-    oppY += clamp(dy, -maxStep, maxStep);
-    oppY = clamp(oppY, paddle.h/2, H - paddle.h/2);
   }
 
-  playerY = clamp(playerY, paddle.h/2, H - paddle.h/2);
-
-  // draw throttled during countdown to reduce jank
-  const now = performance.now();
-  if (!countdownActive || (now - lastDrawAt) > 33){
-    draw();
-    lastDrawAt = now;
-  }
+  playerY = Math.max(paddle.h/2, Math.min(H - paddle.h/2, playerY));
+  draw();
 
   // net sync (host)
   if (NETMODE==='online-host' && conn && conn.open){
@@ -676,7 +613,7 @@ function clampBounceAndSpeed(dirSign){
   angle = Math.max(-maxAngle, Math.min(maxAngle, angle));
   ball.vx = Math.cos(angle)*speed*(dirSign>0?1:-1);
   ball.vy = Math.sin(angle)*speed;
-  const maxSp = ball.baseSpeed*dpr*1.30;
+  const maxSp = ball.baseSpeed*dpr*1.25;
   const curSp = Math.hypot(ball.vx,ball.vy);
   if (curSp>maxSp){ const m=maxSp/curSp; ball.vx*=m; ball.vy*=m; }
 }
@@ -685,12 +622,6 @@ function clampBounceAndSpeed(dirSign){
 function score(side){
   if (side==='L'){ scoreL++; points += PTS_GOAL; } else { scoreR++; }
   scoreEl.textContent = `${scoreL} : ${scoreR}`;
-  scoreEl.classList.remove('bump'); void scoreEl.offsetWidth; scoreEl.classList.add('bump');
-
-  const diff = scoreL - scoreR;
-  if      (diff <= -2){ aiSpeed=280*dpr; aiReact=0.095; ball.r=12; }
-  else if (diff >= 2){  aiSpeed=340*dpr; aiReact=0.075; ball.r=9; }
-  else {                aiSpeed=310*dpr; aiReact=0.085; ball.r=10; }
 
   // FIRST TO 7 (no win-by-2)
   if (scoreL >= POINTS_TO_WIN || scoreR >= POINTS_TO_WIN){
@@ -707,12 +638,12 @@ function score(side){
       resTitle.textContent = 'You lose';
       resPts.textContent = '—';
     }
-    vib(20);
+    vib(15);
     return;
   }
 
-  vib(12);
-  // serve alternates (no lead rule now)
+  vib(8);
+  // alternate serves
   const serveDir = (side==='L') ? 1 : -1;
   resetBall(serveDir);
 }
@@ -731,14 +662,12 @@ function startGame(){
   playerY=H/2; oppY=H/2; ball.r=10; flatTimer=0;
   aiSpeed=300*dpr; aiReact=0.09;
   resize();
-  lastDrawAt = 0;
   resetBall(-1); // start with countdown
   paused=false; running=true; last=0;
   if (rafId) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(loop);
 }
 function pauseGame(){ running=false; paused=true; if (rafId) cancelAnimationFrame(rafId); rafId=null; }
-function startSingleIfNeeded(){ if (NETMODE==='single' && !running) startGame(); }
 
 /* ========= Leaderboard (optional backend) ========= */
 async function submitScore(points){
@@ -790,7 +719,7 @@ function findMatchOnline(){
     paused=false; running=true; last=0;
     if (rafId) cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(loop);
-    c.on('data', onNetDataFromGuest);
+    c.on('data', (msg)=>{ if (msg && msg.t==='in'){ oppY = Math.max(paddle.h/2, Math.min(H - paddle.h/2, msg.y)); } });
     c.on('close', ()=>{ showToast('Player left'); endOnline(); });
   });
 
@@ -809,7 +738,15 @@ function findMatchOnline(){
       p2name.textContent = 'Host'; p2tag.textContent = 'P1';
       conn = peer.connect(resp.opponentPeerId);
       conn.on('open',()=>{ paused=false; running=true; last=0; if (rafId) cancelAnimationFrame(rafId); rafId = requestAnimationFrame(loop); });
-      conn.on('data', onNetDataFromHost);
+      conn.on('data', (msg)=>{
+        if (!msg || msg.t!=='st') return;
+        const sx = W / msg.w, sy = H / msg.h;
+        ball.x = msg.x * sx; ball.y = msg.y * sy;
+        ball.vx = msg.vx * sx; ball.vy = msg.vy * sy;
+        playerY = msg.p2 * sy; oppY = msg.p1 * sy;
+        scoreL = msg.sl; scoreR = msg.sr; scoreEl.textContent = `${scoreL} : ${scoreR}`;
+        draw();
+      });
       conn.on('close', ()=>{ showToast('Disconnected'); endOnline(); });
     } else if (resp?.wait){
       showToast('Waiting for opponent…');
@@ -819,27 +756,6 @@ function findMatchOnline(){
   });
 }
 function endOnline(){ pauseGame(); go('home'); try{conn&&conn.close();}catch(e){} try{peer&&peer.destroy();}catch(e){} conn=null; peer=null; NETMODE='home'; }
-function onNetDataFromGuest(msg){
-  if (!msg||typeof msg!=='object') return;
-  if (msg.t==='in'){ oppY = clamp(msg.y, paddle.h/2, H - paddle.h/2); }
-}
-function onNetDataFromHost(msg){
-  if (!msg || typeof msg !== 'object') return;
-  if (msg.t === 'st') {
-    // scale host coordinates to local canvas
-    const sx = W / msg.w, sy = H / msg.h;
-    ball.x = msg.x * sx;
-    ball.y = msg.y * sy;
-    ball.vx = msg.vx * sx;
-    ball.vy = msg.vy * sy;
-    // YOU are P2 on the guest; host is P1
-    playerY = msg.p2 * sy;
-    oppY    = msg.p1 * sy;
-    scoreL = msg.sl; scoreR = msg.sr;
-    scoreEl.textContent = `${scoreL} : ${scoreR}`;
-    draw();
-  }
-}
 
 /* ========= Share / Cast helpers ========= */
 function openCastComposer(pts){
@@ -853,8 +769,7 @@ function openCastComposer(pts){
 /* ========= Buttons ========= */
 btnSingle.addEventListener('click', ()=> startGame());
 btnFind.addEventListener('click', async ()=>{
-  // Lazy-load PeerJS if defer hasn't finished
-  if (!window.Peer){ await new Promise(r => setTimeout(r, 300)); }
+  if (!window.Peer){ await new Promise(r => setTimeout(r, 200)); }
   if (!window.Peer){
     const s = document.createElement('script');
     s.src = "https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js";
@@ -870,13 +785,24 @@ btnLBBack.addEventListener('click', ()=> go('home'));
 btnAgain.addEventListener('click', ()=> startGame());
 btnHome.addEventListener('click', ()=> go('home'));
 
-btnCast.addEventListener('click', ()=>{
-  const pts = (resPts.textContent==='—') ? 0 : Number(resPts.textContent)||0;
-  openCastComposer(pts);
-});
+function getPts(){ return (resPts.textContent==='—') ? 0 : Number(resPts.textContent)||0; }
+btnCast.addEventListener('click', ()=> openCastComposer(getPts()));
 btnShare.addEventListener('click', ()=>{
-  const pts = (resPts.textContent==='—') ? 0 : Number(resPts.textContent)||0;
+  const pts = getPts();
   const text = pts ? `I won Pong with ${pts} pts!` : `I just played Pong!`;
+  try{
+    if (navigator.share){ navigator.share({ text, url: location.href }); }
+    else { navigator.clipboard.writeText(text + ' ' + location.href); showToast('Copied'); }
+  } catch(e){ showToast('Share unavailable'); }
+});
+btnCastScore.addEventListener('click', ()=>{
+  // cast current score mid-game
+  const text = `Playing Pong: ${scoreL} : ${scoreR} 🏓`;
+  const compose = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(location.href)}`;
+  window.open(compose, '_blank');
+});
+btnShareScore.addEventListener('click', ()=>{
+  const text = `Playing Pong: ${scoreL} : ${scoreR} 🏓`;
   try{
     if (navigator.share){ navigator.share({ text, url: location.href }); }
     else { navigator.clipboard.writeText(text + ' ' + location.href); showToast('Copied'); }
