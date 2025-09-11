@@ -175,9 +175,14 @@
   let peer = null, conn = null, isHost = false, netLastSend = 0;
   let oppUser = null;
 
-  // JUICE + TRAIL ( #6, #7 )
-  let shake = 0, flash = 0;
+  // Trail (#7)
   const trail = [];
+
+  // New logic
+  let rallyHits = 0;              // rally speed curve
+  let lastPointerY = null, pointerVy = 0; // spin
+  let flatTimer = 0;              // anti-stall
+  const POINTS_TO_WIN = 11;       // win by 2
 
   function resize(){
     const w = innerWidth, h = innerHeight;
@@ -204,32 +209,37 @@
     ball.vy = Math.sin(angle) * sp;
     playerY = H/2; oppY = H/2;
     noScoreUntil = performance.now() + 200;
-    // clear trail on serve
-    trail.length = 0;
+    trail.length = 0; // clear trail
   }
 
-  // Input (pointer + touch)
+  // Input (pointer + touch) with spin sampling
   function updateFromPointerLike(clientY){
     const r = canvas.getBoundingClientRect();
     const y = (clientY - r.top) * dpr;
+    // compute swipe velocity for spin
+    if (lastPointerY != null) pointerVy = (clientY - (r.top + lastPointerY/dpr)) * dpr; // robust
+    lastPointerY = (y); // store in canvas space
     playerY = clamp(y, paddle.h/2, H - paddle.h/2);
     if (MODE === 'online-guest' && conn && conn.open) {
       try { conn.send({ t:'in', y: playerY }); } catch(e){}
     }
   }
   function onPointer(e){ updateFromPointerLike(e.clientY); e.preventDefault(); }
-  function onTouch(e){ if (!e.touches || !e.touches[0]) return; updateFromPointerLike(e.touches[0].clientY); e.preventDefault(); }
+  function onTouch(e){
+    if (!e.touches || !e.touches[0]) return;
+    updateFromPointerLike(e.touches[0].clientY); e.preventDefault();
+  }
 
   let dragging=false;
   canvas.addEventListener('pointerdown', (e)=>{ dragging=true; if(!running) startSingleIfNeeded(); onPointer(e); }, {passive:false});
   canvas.addEventListener('pointermove', (e)=>{ if(!dragging) return; onPointer(e); }, {passive:false});
-  canvas.addEventListener('pointerup', ()=> dragging=false, {passive:true});
-  canvas.addEventListener('pointercancel', ()=> dragging=false, {passive:true});
+  canvas.addEventListener('pointerup', ()=> { dragging=false; lastPointerY=null; pointerVy=0; }, {passive:true});
+  canvas.addEventListener('pointercancel', ()=> { dragging=false; lastPointerY=null; pointerVy=0; }, {passive:true});
 
   canvas.addEventListener('touchstart', (e)=>{ dragging=true; if(!running) startSingleIfNeeded(); onTouch(e); }, {passive:false});
   canvas.addEventListener('touchmove',  (e)=>{ if(!dragging) return; onTouch(e); }, {passive:false});
-  canvas.addEventListener('touchend',   ()=> dragging=false, {passive:true});
-  canvas.addEventListener('touchcancel',()=> dragging=false, {passive:true});
+  canvas.addEventListener('touchend',   ()=> { dragging=false; lastPointerY=null; pointerVy=0; }, {passive:true});
+  canvas.addEventListener('touchcancel',()=> { dragging=false; lastPointerY=null; pointerVy=0; }, {passive:true});
 
   function startSingleIfNeeded(){ if (MODE === 'single' && !running) startGame(); }
 
@@ -268,7 +278,7 @@
     ctx.lineWidth = 1*dpr; ctx.strokeStyle = css('--paddleEdge'); ctx.stroke();
   }
   function drawBall(){
-    // trail first (#7)
+    // trail (#7)
     for (let i=0;i<trail.length;i++){
       const t = i / trail.length;
       ctx.globalAlpha = t * 0.5;
@@ -285,30 +295,11 @@
   }
   function draw(){
     if (!ctx) return;
-
-    // tiny screenshake (#6)
-    let usedShake = false;
-    if (shake > 0) {
-      usedShake = true;
-      const ox = (Math.random()*2-1) * shake;
-      const oy = (Math.random()*2-1) * shake;
-      ctx.save(); ctx.translate(ox, oy);
-    }
-
     drawCourt();
     const px = 22*dpr, ax = W - (22*dpr + paddle.w);
     drawPaddle(px, playerY, paddle.w, paddle.h);
     drawPaddle(ax, oppY,     paddle.w, paddle.h);
     drawBall();
-
-    if (usedShake) { ctx.restore(); shake *= 0.88; if (shake < 0.6) shake = 0; }
-
-    // impact flash overlay (#6)
-    if (flash > 0) {
-      ctx.fillStyle = 'rgba(255,255,255,0.05)';
-      ctx.fillRect(0,0,W,H);
-      flash -= 16; if (flash < 0) flash = 0;
-    }
   }
 
   /*********** Step (host or single) ***********/
@@ -319,6 +310,10 @@
 
     // record trail position (#7)
     trail.push({x:ball.x, y:ball.y}); if (trail.length > 10) trail.shift();
+
+    // anti-stall (flat) nudge
+    if (Math.abs(ball.vy) < 30 * dpr) flatTimer += dt; else flatTimer = 0;
+    if (flatTimer > 1.2) { ball.vy += (Math.random() > 0.5 ? 1 : -1) * 60 * dpr; flatTimer = 0; }
 
     // walls
     if (ball.y < r) { ball.y = r; ball.vy *= -1; }
@@ -335,12 +330,29 @@
         const t = (ball.y - playerY) / (paddle.h/2);
         ball.vx = Math.abs(ball.vx) * 1.01;
         ball.vy = (ball.vy * 0.5) + (t * 260 * dpr);
+
+        // player spin via swipe
+        ball.vy += pointerVy * 5; pointerVy = 0;
+
+        // rally-based speed curve
+        rallyHits = Math.min(rallyHits + 1, 12);
+        const boost = 1 + Math.min(rallyHits * 0.015, 0.18);
+        ball.vx *= boost; ball.vy *= boost;
+
+        // clamp bounce angles (fairness)
+        const speed = Math.hypot(ball.vx, ball.vy);
+        let angle = Math.atan2(ball.vy, Math.abs(ball.vx));
+        const maxAngle = Math.PI * 0.36; // ~65°
+        angle = Math.max(-maxAngle, Math.min(maxAngle, angle));
+        ball.vx = Math.cos(angle) * speed * 1; // moving right
+        ball.vy = Math.sin(angle) * speed;
+
         // clamp runaway speed
         const maxSp = ball.baseSpeed * speedMul * dpr * 1.35;
         const curSp = Math.hypot(ball.vx, ball.vy);
         if (curSp > maxSp) { const m = maxSp / curSp; ball.vx *= m; ball.vy *= m; }
-        // JUICE + HAPTIC (#6, #10)
-        shake = 4 * dpr; flash = 120; vib(10);
+
+        vib(10);
       }
     } else {
       if (ball.x + r >= ax && ball.x + r <= ax + paddle.w && ball.y >= aTop && ball.y <= aBot) {
@@ -348,11 +360,26 @@
         const t = (ball.y - oppY) / (paddle.h/2);
         ball.vx = -Math.abs(ball.vx) * 1.02;
         ball.vy = (ball.vy * 0.5) + (t * 260 * dpr);
+
+        // rally-based speed curve
+        rallyHits = Math.min(rallyHits + 1, 12);
+        const boost = 1 + Math.min(rallyHits * 0.015, 0.18);
+        ball.vx *= boost; ball.vy *= boost;
+
+        // clamp bounce angles (fairness)
+        const speed = Math.hypot(ball.vx, ball.vy);
+        let angle = Math.atan2(ball.vy, Math.abs(ball.vx));
+        const maxAngle = Math.PI * 0.36; // ~65°
+        angle = Math.max(-maxAngle, Math.min(maxAngle, angle));
+        ball.vx = -Math.cos(angle) * speed; // moving left
+        ball.vy =  Math.sin(angle) * speed;
+
+        // clamp runaway speed
         const maxSp = ball.baseSpeed * speedMul * dpr * 1.35;
         const curSp = Math.hypot(ball.vx, ball.vy);
         if (curSp > maxSp) { const m = maxSp / curSp; ball.vx *= m; ball.vy *= m; }
-        // JUICE + HAPTIC (#6, #10)
-        shake = 4 * dpr; flash = 120; vib(10);
+
+        vib(10);
       }
     }
 
@@ -391,15 +418,31 @@
     scoreEl.textContent = scoreL + " : " + scoreR;
     scoreEl.classList.remove('bump'); void scoreEl.offsetWidth; scoreEl.classList.add('bump');
 
-    // #1 Dynamic AI: adapt speed based on score difference
+    // Dynamic AI
     const diff = scoreL - scoreR; // positive when you lead
-    if (diff <= -2) { aiSpeed = 300 * dpr; }   // easier if you're losing
+    if (diff <= -2) { aiSpeed = 300 * dpr; }    // easier if you're losing
     else if (diff >= 2) { aiSpeed = 360 * dpr; } // tougher if you're winning
-    else { aiSpeed = 330 * dpr; }              // neutral
+    else { aiSpeed = 330 * dpr; }               // neutral
 
-    // haptic on score (#10)
+    // Comeback assist: ball a bit bigger when behind
+    ball.r = (diff <= -2) ? 11 : 9;
+
+    // Win condition: to 11, win by 2
+    const lead = Math.abs(scoreL - scoreR);
+    if ((scoreL >= POINTS_TO_WIN || scoreR >= POINTS_TO_WIN) && lead >= 2) {
+      running = false;
+      overlay.classList.remove('hidden');
+      const t = document.querySelector('.card.home .title');
+      if (t) t.textContent = (scoreL > scoreR ? 'You win!' : 'You lose');
+      setTimeout(()=>{ if (t) t.textContent = 'PONG'; }, 1200);
+      vib(20);
+      return;
+    }
+
+    // reset rally for next serve
+    rallyHits = 0;
+
     vib(15);
-
     resetBall(side === 'L' ? -1 : 1);
   }
 
@@ -417,6 +460,7 @@
   function startGame(){
     scoreL=0; scoreR=0; scoreEl.textContent = "0 : 0";
     playerY = H/2; oppY = H/2;
+    rallyHits = 0; flatTimer = 0; ball.r = 9;
     resetBall(Math.random()<0.5? -1 : 1);
     overlay.classList.add('hidden');
     paused=false; running=true; last=0;
@@ -522,9 +566,6 @@
     }
   }
 
-  // Deep-link auto-join (?join=CODE) — harmless even if unused
-  (function(){ const m = /[?&]join=([A-Z0-9]{4})/i.exec(location.search); if (m) {} })();
-
   /*********** Boot ***********/
   function init(){ resize(); draw(); }
   init();
@@ -552,60 +593,5 @@
     }
   })();
   </script>
-  <!-- Farcaster: ALWAYS call ready() (Android-safe, no optional chaining) -->
-<script>
-(function () {
-  function callReadyFrom(obj){
-    try{
-      if (obj && obj.actions && typeof obj.actions.ready === 'function') {
-        obj.actions.ready();
-        return true;
-      }
-    }catch(e){}
-    return false;
-  }
-  function tryAll(){
-    if (callReadyFrom(window.__fc_sdk)) return true;     // official global
-    if (window.farcaster && callReadyFrom(window.farcaster.sdk)) return true;
-    if (window.frame && callReadyFrom(window.frame.sdk)) return true;
-    if (callReadyFrom(window.sdk)) return true;          // some clients expose this
-    return false;
-  }
-
-  // 1) Try immediately and after first paint
-  if (!tryAll()) {
-    requestAnimationFrame(function(){ requestAnimationFrame(tryAll); });
-  }
-
-  // 2) Keep retrying for a few seconds (Android WebView may inject late)
-  var tries = 0, t = setInterval(function(){
-    if (tryAll() || ++tries > 60) clearInterval(t); // ~6s
-  }, 100);
-
-  // 3) Load SDK from CDN as a fallback and try again
-  function loadUMD(){
-    var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@latest/dist/index.min.js';
-    s.onload = function(){ setTimeout(tryAll, 50); };
-    document.head.appendChild(s);
-  }
-  try {
-    // Some environments support ESM import; if it fails we still load UMD
-    import('https://esm.sh/@farcaster/miniapp-sdk@latest')
-      .then(function(mod){
-        var sdk = mod.sdk || mod.default || mod;
-        if (sdk && sdk.actions && typeof sdk.actions.ready === 'function') {
-          try { sdk.actions.ready(); } catch(e) {}
-          window.__fc_sdk = sdk;
-        }
-      })
-      .catch(function(){ loadUMD(); });
-  } catch(e) { loadUMD(); }
-
-  // 4) Also try on full window load
-  window.addEventListener('load', function(){ setTimeout(tryAll, 50); });
-})();
-</script>
-
 </body>
 </html>
