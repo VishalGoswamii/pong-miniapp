@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Pong • Pickleball Theme</title>
 
-  <!-- Farcaster Mini App embed (Vercel domain + root images) -->
   <meta name="fc:miniapp" content='{
     "version": "1",
     "imageUrl": "https://pong-miniapp.vercel.app/og.png",
@@ -21,7 +20,6 @@
     }
   }' />
 
-  <!-- PeerJS for online 1v1 (deferred; safe-guarded) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js" defer></script>
 
   <style>
@@ -62,7 +60,6 @@
 
     #hint { position:fixed; bottom:calc(env(safe-area-inset-bottom) + 10px); left:0; right:0; text-align:center; color:#e7f2ff; font-size:13px; opacity:.9; }
 
-    /* player badges */
     #players { position:fixed; top:calc(env(safe-area-inset-top) + 54px); left:0; right:0; display:flex; justify-content:space-between; padding:0 10px; pointer-events:none; }
     .pb { display:flex; align-items:center; gap:8px; background:rgba(12,18,32,.6); border:1px solid rgba(255,255,255,.14);
       color:#eaf3ff; padding:6px 10px; border-radius:999px; min-width:120px; }
@@ -70,7 +67,6 @@
     .pb .name { font-weight:800; font-size:13px; }
     .pb .tag  { font-size:12px; opacity:.8; }
 
-    /* tiny toasts */
     #toast { position:fixed; top:calc(env(safe-area-inset-top) + 10px); right:10px; color:#fff; background:rgba(0,0,0,.6); padding:8px 10px; border-radius:10px; font-size:12px; display:none; }
     #toast.show { display:block; }
   </style>
@@ -114,75 +110,66 @@
 
   <script>
   'use strict';
-  /*********** DOM ***********/
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d', { alpha:false }) || canvas.getContext('2d');
   const scoreEl = document.getElementById('score');
   const overlay = document.getElementById('overlay');
   const p1img = document.getElementById('p1img'), p1name = document.getElementById('p1name');
   const p2img = document.getElementById('p2img'), p2name = document.getElementById('p2name'), p2tag = document.getElementById('p2tag');
-  const toast = document.getElementById('toast');
-
   const btnSingle = document.getElementById('btnSingle');
   const btnFind   = document.getElementById('btnFind');
-
+  const toast = document.getElementById('toast');
   const vib = (ms)=>{ try{ if(navigator.vibrate) navigator.vibrate(ms);}catch(e){} };
-  function showToast(t){ toast.textContent = t; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 2500); }
+  const showToast=(t)=>{ toast.textContent=t; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 2000); };
 
-  /*********** Farcaster user (username + pfp) ***********/
   function readMiniUser(){
     try {
-      const c1 = window.__fc_sdk && window.__fc_sdk.context;
-      const c2 = window.farcaster && window.farcaster.sdk && window.farcaster.sdk.context;
-      const c3 = window.frame && window.frame.sdk && window.frame.sdk.context;
-      const c4 = window.sdk && window.sdk.context;
-      const cx = c1 || c2 || c3 || c4;
-      if (cx && cx.user) return cx.user; // { fid, username, displayName, pfpUrl }
+      const l = [window.__fc_sdk, window?.farcaster?.sdk, window?.frame?.sdk, window.sdk].filter(Boolean)[0];
+      if (l && l.context && l.context.user) return l.context.user;
     } catch(e){}
     return null;
   }
-  function setPlayerBadge(elImg, elName, obj, fallbackTag){
+  function setPlayerBadge(elImg, elName, obj, fallback){
     if (obj) {
       elName.textContent = obj.displayName || obj.username || ('fid ' + obj.fid);
-      if (obj.pfpUrl) { elImg.src = obj.pfpUrl; elImg.alt = elName.textContent; }
-      else { elImg.removeAttribute('src'); elImg.alt = ''; }
+      if (obj.pfpUrl) { elImg.src = obj.pfpUrl; elImg.alt = elName.textContent; } else { elImg.removeAttribute('src'); }
     } else {
-      elName.textContent = fallbackTag || 'Guest';
-      elImg.removeAttribute('src'); elImg.alt = '';
+      elName.textContent = fallback || 'Guest'; elImg.removeAttribute('src');
     }
   }
-  const me = readMiniUser(); // may be null outside Farcaster
-  setPlayerBadge(p1img, p1name, me, 'You');
+  const me = readMiniUser(); setPlayerBadge(p1img, p1name, me, 'You');
 
-  /*********** Game state ***********/
   const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
   let W=0, H=0, last=0, running=false, paused=false, noScoreUntil=0;
 
   const paddle = { w: 4*dpr, h: 70*dpr };
   let playerY=0, oppY=0;
-  const ball = { x:0, y:0, r:9, vx:0, vy:0, baseSpeed:380 };
-  let speedMul = 1.0; // single speed
+  const ball = { x:0, y:0, r:9, vx:0, vy:0, baseSpeed:360 }; // a bit slower base
+  let speedMul = 1.0;
 
   let scoreL=0, scoreR=0;
 
-  // AI
+  // AI core + assists
   let aiOn = true;
-  let aiSpeed = 330 * dpr;
-  const aiNoise = 26 * dpr;
+  let aiSpeed = 310 * dpr;      // lower base = easier
+  let aiReact = 0.085;          // reaction delay (sec)
+  let aiTimer = 0;
+  let aiAimY = 0;
+  let aiNoise = 28 * dpr;
 
-  // Online (PeerJS)
-  let MODE = 'home';          // 'single' | 'online-host' | 'online-guest'
-  let peer = null, conn = null, isHost = false, netLastSend = 0;
-  let oppUser = null;
+  // Online
+  let MODE='home', peer=null, conn=null, isHost=false, netLastSend=0;
 
-  // Trail (#7)
+  // Trail
   const trail = [];
 
-  // New logic
-  let rallyHits = 0;              // rally speed curve
-  let lastPointerY = null, pointerVy = 0; // spin
-  let flatTimer = 0;              // anti-stall
-  const POINTS_TO_WIN = 11;       // win by 2
+  // New logic bits
+  let rallyHits = 0, lastPointerY=null, pointerVy=0, flatTimer=0;
+  const POINTS_TO_WIN = 7; // win sooner (change to 9/11 if you prefer)
+
+  // hitbox bias to favor player
+  const playerHitboxBonus = 10*dpr; // expand your paddle by 10px
+  const aiHitboxTight     = 8*dpr;  // shrink AI paddle by 8px
 
   function resize(){
     const w = innerWidth, h = innerHeight;
@@ -198,103 +185,89 @@
   }
   addEventListener('resize', resize);
 
-  const clamp = (v,min,max) => v<min?min:v>max?max:v;
-  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const clamp=(v,min,max)=>v<min?min:v>max?max:v;
+  const css=(name)=>getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
   function resetBall(dir=1){
-    ball.x = W/2; ball.y = H/2;
-    const angle = (Math.random()*0.5 - 0.25);
+    ball.x=W/2; ball.y=H/2;
+    const angle=(Math.random()*0.5 - 0.25);
     const sp = ball.baseSpeed * speedMul * dpr;
-    ball.vx = Math.cos(angle) * sp * dir;
-    ball.vy = Math.sin(angle) * sp;
-    playerY = H/2; oppY = H/2;
-    noScoreUntil = performance.now() + 200;
-    trail.length = 0; // clear trail
+    ball.vx=Math.cos(angle)*sp*dir; ball.vy=Math.sin(angle)*sp;
+    playerY=H/2; oppY=H/2;
+    noScoreUntil=performance.now()+200;
+    trail.length=0;
   }
 
-  // Input (pointer + touch) with spin sampling
+  // Input with spin sampling
   function updateFromPointerLike(clientY){
     const r = canvas.getBoundingClientRect();
     const y = (clientY - r.top) * dpr;
-    // compute swipe velocity for spin
-    if (lastPointerY != null) pointerVy = (clientY - (r.top + lastPointerY/dpr)) * dpr; // robust
-    lastPointerY = (y); // store in canvas space
+    if (lastPointerY != null) pointerVy = (y - lastPointerY);
+    lastPointerY = y;
     playerY = clamp(y, paddle.h/2, H - paddle.h/2);
-    if (MODE === 'online-guest' && conn && conn.open) {
-      try { conn.send({ t:'in', y: playerY }); } catch(e){}
-    }
+    if (MODE === 'online-guest' && conn && conn.open) { try{ conn.send({ t:'in', y: playerY }); }catch(e){} }
   }
-  function onPointer(e){ updateFromPointerLike(e.clientY); e.preventDefault(); }
-  function onTouch(e){
-    if (!e.touches || !e.touches[0]) return;
-    updateFromPointerLike(e.touches[0].clientY); e.preventDefault();
-  }
+  const onPointer=(e)=>{ updateFromPointerLike(e.clientY); e.preventDefault(); };
+  const onTouch=(e)=>{ if (!e.touches?.[0]) return; updateFromPointerLike(e.touches[0].clientY); e.preventDefault(); };
 
   let dragging=false;
   canvas.addEventListener('pointerdown', (e)=>{ dragging=true; if(!running) startSingleIfNeeded(); onPointer(e); }, {passive:false});
   canvas.addEventListener('pointermove', (e)=>{ if(!dragging) return; onPointer(e); }, {passive:false});
-  canvas.addEventListener('pointerup', ()=> { dragging=false; lastPointerY=null; pointerVy=0; }, {passive:true});
-  canvas.addEventListener('pointercancel', ()=> { dragging=false; lastPointerY=null; pointerVy=0; }, {passive:true});
+  canvas.addEventListener('pointerup', ()=>{ dragging=false; lastPointerY=null; pointerVy=0; }, {passive:true});
+  canvas.addEventListener('pointercancel', ()=>{ dragging=false; lastPointerY=null; pointerVy=0; }, {passive:true});
 
   canvas.addEventListener('touchstart', (e)=>{ dragging=true; if(!running) startSingleIfNeeded(); onTouch(e); }, {passive:false});
   canvas.addEventListener('touchmove',  (e)=>{ if(!dragging) return; onTouch(e); }, {passive:false});
-  canvas.addEventListener('touchend',   ()=> { dragging=false; lastPointerY=null; pointerVy=0; }, {passive:true});
-  canvas.addEventListener('touchcancel',()=> { dragging=false; lastPointerY=null; pointerVy=0; }, {passive:true});
+  canvas.addEventListener('touchend',   ()=>{ dragging=false; lastPointerY=null; pointerVy=0; }, {passive:true});
+  canvas.addEventListener('touchcancel',()=>{ dragging=false; lastPointerY=null; pointerVy=0; }, {passive:true});
 
-  function startSingleIfNeeded(){ if (MODE === 'single' && !running) startGame(); }
+  const startSingleIfNeeded=()=>{ if (MODE==='single' && !running) startGame(); };
 
-  /*********** Rendering ***********/
   function drawCourt(){
-    if (!ctx) return;
-    ctx.fillStyle = css('--courtOuter'); ctx.fillRect(0,0,W,H);
-    ctx.fillStyle = css('--courtMain'); ctx.fillRect(0,0,W,H);
+    ctx.fillStyle=css('--courtOuter'); ctx.fillRect(0,0,W,H);
+    ctx.fillStyle=css('--courtMain');  ctx.fillRect(0,0,W,H);
     const kW = W * (7/44);
-    ctx.fillStyle = css('--courtKitchen');
+    ctx.fillStyle=css('--courtKitchen');
     ctx.fillRect(W/2 - kW, 0, kW, H);
-    ctx.fillRect(W/2, 0, kW, H);
+    ctx.fillRect(W/2,      0, kW, H);
     ctx.save();
-    ctx.strokeStyle = css('--courtLine');
-    ctx.lineWidth = 3*dpr; ctx.lineCap='square';
+    ctx.strokeStyle=css('--courtLine'); ctx.lineWidth=3*dpr; ctx.lineCap='square';
     ctx.strokeRect(1.5*dpr, 1.5*dpr, W-3*dpr, H-3*dpr);
-    ctx.setLineDash([10*dpr, 14*dpr]);
-    ctx.strokeStyle = css('--centerRed'); ctx.beginPath(); ctx.moveTo(W/2, 0); ctx.lineTo(W/2, H); ctx.stroke();
-    ctx.setLineDash([]); ctx.strokeStyle = css('--courtLine');
-    ctx.beginPath(); ctx.moveTo(W/2 - kW, 0); ctx.lineTo(W/2 - kW, H); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(W/2 + kW, 0); ctx.lineTo(W/2 + kW, H); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, H/2); ctx.lineTo(W, H/2); ctx.stroke();
+    ctx.setLineDash([10*dpr,14*dpr]); ctx.strokeStyle=css('--centerRed');
+    ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke();
+    ctx.setLineDash([]); ctx.strokeStyle=css('--courtLine');
+    ctx.beginPath(); ctx.moveTo(W/2 - kW,0); ctx.lineTo(W/2 - kW,H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W/2 + kW,0); ctx.lineTo(W/2 + kW,H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,H/2); ctx.lineTo(W,H/2); ctx.stroke();
     ctx.restore();
   }
   function drawPaddle(x,y,w,h){
-    ctx.fillStyle = css('--paddleFace');
-    const r = Math.min(6*dpr, w);
+    ctx.fillStyle=css('--paddleFace');
+    const r=Math.min(6*dpr,w);
     ctx.beginPath();
     ctx.moveTo(x, y-h/2+r);
     ctx.arcTo(x, y-h/2, x+w, y-h/2, r);
     ctx.arcTo(x+w, y-h/2, x+w, y+h/2, r);
     ctx.arcTo(x+w, y+h/2, x, y+h/2, r);
     ctx.arcTo(x, y+h/2, x, y-h/2, r);
-    ctx.closePath();
-    ctx.fill();
-    ctx.lineWidth = 1*dpr; ctx.strokeStyle = css('--paddleEdge'); ctx.stroke();
+    ctx.closePath(); ctx.fill();
+    ctx.lineWidth=1*dpr; ctx.strokeStyle=css('--paddleEdge'); ctx.stroke();
   }
   function drawBall(){
-    // trail (#7)
     for (let i=0;i<trail.length;i++){
-      const t = i / trail.length;
-      ctx.globalAlpha = t * 0.5;
-      ctx.beginPath(); ctx.arc(trail[i].x, trail[i].y, (ball.r*dpr) * (0.6 + 0.4*t), 0, Math.PI*2);
-      ctx.fillStyle = css('--ballY'); ctx.fill();
+      const t=i/trail.length;
+      ctx.globalAlpha=t*0.5;
+      ctx.beginPath(); ctx.arc(trail[i].x, trail[i].y, (ball.r*dpr)*(0.6+0.4*t), 0, Math.PI*2);
+      ctx.fillStyle=css('--ballY'); ctx.fill();
     }
-    ctx.globalAlpha = 1;
-    // main ball
-    const rr = ball.r*dpr;
-    ctx.fillStyle = css('--ballY');
+    ctx.globalAlpha=1;
+    const rr=ball.r*dpr;
+    ctx.fillStyle=css('--ballY');
     ctx.beginPath(); ctx.arc(ball.x, ball.y, rr, 0, Math.PI*2); ctx.fill();
-    ctx.lineWidth = 1.2*dpr; ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.lineWidth=1.2*dpr; ctx.strokeStyle='rgba(0,0,0,0.25)';
     ctx.beginPath(); ctx.arc(ball.x, ball.y, rr, 0, Math.PI*2); ctx.stroke();
   }
   function draw(){
-    if (!ctx) return;
     drawCourt();
     const px = 22*dpr, ax = W - (22*dpr + paddle.w);
     drawPaddle(px, playerY, paddle.w, paddle.h);
@@ -302,111 +275,121 @@
     drawBall();
   }
 
-  /*********** Step (host or single) ***********/
   function stepHostOrSingle(dt){
-    const oldX = ball.x;
-    const r = ball.r * dpr;
-    ball.x += ball.vx * dt; ball.y += ball.vy * dt;
+    const oldX=ball.x;
+    const r=ball.r*dpr;
+    ball.x += ball.vx*dt; ball.y += ball.vy*dt;
 
-    // record trail position (#7)
-    trail.push({x:ball.x, y:ball.y}); if (trail.length > 10) trail.shift();
-
-    // anti-stall (flat) nudge
-    if (Math.abs(ball.vy) < 30 * dpr) flatTimer += dt; else flatTimer = 0;
-    if (flatTimer > 1.2) { ball.vy += (Math.random() > 0.5 ? 1 : -1) * 60 * dpr; flatTimer = 0; }
+    // trail + anti-stall
+    trail.push({x:ball.x,y:ball.y}); if (trail.length>10) trail.shift();
+    if (Math.abs(ball.vy) < 30*dpr) flatTimer += dt; else flatTimer = 0;
+    if (flatTimer > 1.0) { ball.vy += (Math.random()>0.5?1:-1)*50*dpr; flatTimer = 0; }
 
     // walls
-    if (ball.y < r) { ball.y = r; ball.vy *= -1; }
-    if (ball.y > H - r) { ball.y = H - r; ball.vy *= -1; }
+    if (ball.y < r){ ball.y = r; ball.vy *= -1; }
+    if (ball.y > H - r){ ball.y = H - r; ball.vy *= -1; }
 
-    // paddles
+    // paddles with biased hitboxes
     const px = 22*dpr, ax = W - (22*dpr + paddle.w);
-    const pTop = playerY - paddle.h/2, pBot = playerY + paddle.h/2;
-    const aTop = oppY - paddle.h/2, aBot = oppY + paddle.h/2;
+    const pTop = (playerY - paddle.h/2) - playerHitboxBonus, pBot = (playerY + paddle.h/2) + playerHitboxBonus;
+    const aTop = (oppY    - paddle.h/2) + aiHitboxTight,     aBot = (oppY    + paddle.h/2) - aiHitboxTight;
 
     if (ball.vx < 0) {
       if (ball.x - r <= px + paddle.w && ball.x - r >= px && ball.y >= pTop && ball.y <= pBot) {
         ball.x = px + paddle.w + r;
         const t = (ball.y - playerY) / (paddle.h/2);
-        ball.vx = Math.abs(ball.vx) * 1.01;
-        ball.vy = (ball.vy * 0.5) + (t * 260 * dpr);
-
-        // player spin via swipe
+        ball.vx = Math.abs(ball.vx) * 1.02;             // keep your power
+        ball.vy = (ball.vy * 0.45) + (t * 240 * dpr);
+        // spin from swipe
         ball.vy += pointerVy * 5; pointerVy = 0;
 
-        // rally-based speed curve
-        rallyHits = Math.min(rallyHits + 1, 12);
-        const boost = 1 + Math.min(rallyHits * 0.015, 0.18);
+        // rally curve
+        rallyHits = Math.min(rallyHits+1, 12);
+        const boost = 1 + Math.min(rallyHits*0.015, 0.18);
         ball.vx *= boost; ball.vy *= boost;
 
-        // clamp bounce angles (fairness)
-        const speed = Math.hypot(ball.vx, ball.vy);
-        let angle = Math.atan2(ball.vy, Math.abs(ball.vx));
-        const maxAngle = Math.PI * 0.36; // ~65°
+        // angle clamp
+        const speed=Math.hypot(ball.vx, ball.vy);
+        let angle=Math.atan2(ball.vy, Math.abs(ball.vx));
+        const maxAngle=Math.PI*0.36;
         angle = Math.max(-maxAngle, Math.min(maxAngle, angle));
-        ball.vx = Math.cos(angle) * speed * 1; // moving right
-        ball.vy = Math.sin(angle) * speed;
+        ball.vx = Math.cos(angle)*speed*1; ball.vy = Math.sin(angle)*speed;
 
-        // clamp runaway speed
-        const maxSp = ball.baseSpeed * speedMul * dpr * 1.35;
+        // cap max speed
+        const maxSp = ball.baseSpeed*speedMul*dpr*1.30;
         const curSp = Math.hypot(ball.vx, ball.vy);
-        if (curSp > maxSp) { const m = maxSp / curSp; ball.vx *= m; ball.vy *= m; }
-
-        vib(10);
+        if (curSp>maxSp){ const m=maxSp/curSp; ball.vx*=m; ball.vy*=m; }
+        vib(8);
       }
     } else {
       if (ball.x + r >= ax && ball.x + r <= ax + paddle.w && ball.y >= aTop && ball.y <= aBot) {
         ball.x = ax - r;
         const t = (ball.y - oppY) / (paddle.h/2);
-        ball.vx = -Math.abs(ball.vx) * 1.02;
-        ball.vy = (ball.vy * 0.5) + (t * 260 * dpr);
+        ball.vx = -Math.abs(ball.vx) * 0.98;            // AI shaves some speed
+        ball.vy = (ball.vy * 0.45) + (t * 230 * dpr);
 
-        // rally-based speed curve
-        rallyHits = Math.min(rallyHits + 1, 12);
-        const boost = 1 + Math.min(rallyHits * 0.015, 0.18);
+        // rally curve
+        rallyHits = Math.min(rallyHits+1, 12);
+        const boost = 1 + Math.min(rallyHits*0.015, 0.18);
         ball.vx *= boost; ball.vy *= boost;
 
-        // clamp bounce angles (fairness)
-        const speed = Math.hypot(ball.vx, ball.vy);
-        let angle = Math.atan2(ball.vy, Math.abs(ball.vx));
-        const maxAngle = Math.PI * 0.36; // ~65°
+        // angle clamp
+        const speed=Math.hypot(ball.vx, ball.vy);
+        let angle=Math.atan2(ball.vy, Math.abs(ball.vx));
+        const maxAngle=Math.PI*0.36;
         angle = Math.max(-maxAngle, Math.min(maxAngle, angle));
-        ball.vx = -Math.cos(angle) * speed; // moving left
-        ball.vy =  Math.sin(angle) * speed;
+        ball.vx = -Math.cos(angle)*speed; ball.vy = Math.sin(angle)*speed;
 
-        // clamp runaway speed
-        const maxSp = ball.baseSpeed * speedMul * dpr * 1.35;
+        // cap max speed
+        const maxSp = ball.baseSpeed*speedMul*dpr*1.30;
         const curSp = Math.hypot(ball.vx, ball.vy);
-        if (curSp > maxSp) { const m = maxSp / curSp; ball.vx *= m; ball.vy *= m; }
-
-        vib(10);
+        if (curSp>maxSp){ const m=maxSp/curSp; ball.vx*=m; ball.vy*=m; }
+        vib(6);
       }
     }
 
-    // scoring (after small grace)
+    // scoring after grace
     if (performance.now() >= noScoreUntil) {
-      const leftCross  = (ball.vx < 0) && ((oldX + r) >= 0) && ((ball.x + r) < 0);
-      const rightCross = (ball.vx > 0) && ((oldX - r) <= W) && ((ball.x - r) > W);
-      if (leftCross) { score('R'); return; }
-      if (rightCross){ score('L'); return; }
+      const leftOut  = (ball.vx < 0) && ((oldX + r) >= 0) && ((ball.x + r) < 0);
+      const rightOut = (ball.vx > 0) && ((oldX - r) <= W) && ((ball.x - r) > W);
+      if (leftOut)  { score('R'); return; }
+      if (rightOut) { score('L'); return; }
     }
 
-    // AI move (only in single-player)
+    // AI with reaction + prediction + jitter
     if (aiOn) {
-      const target = clamp(ball.y + (Math.random()*2-1)*aiNoise, paddle.h/2, H - paddle.h/2);
-      const dy = target - oppY; const maxStep = aiSpeed * dt; oppY += clamp(dy, -maxStep, maxStep);
+      aiTimer += dt;
+      if (aiTimer >= aiReact) {
+        aiTimer = 0;
+        if (ball.vx > 0) {
+          const ax = W - (22*dpr + paddle.w);
+          const timeToReach = Math.max(0.001, (ax - ball.x) / Math.max(80, ball.vx));
+          let projY = ball.y + ball.vy * timeToReach;
+          const hh = H - ball.r*dpr;
+          while (projY < ball.r*dpr || projY > hh) {
+            if (projY < ball.r*dpr) projY = ball.r*dpr + (ball.r*dpr - projY);
+            else if (projY > hh)    projY = hh - (projY - hh);
+          }
+          const diff = scoreL - scoreR;
+          const baseErr = (diff <= -2) ? 34*dpr : (diff >= 2 ? 10*dpr : 20*dpr);
+          const jitter = (Math.random()*2 - 1) * baseErr;
+          aiAimY = clamp(projY + jitter, paddle.h/2, H - paddle.h/2);
+        } else {
+          aiAimY = H/2;
+        }
+      }
+      const dy = aiAimY - oppY;
+      const maxStep = aiSpeed * dt;
+      oppY += clamp(dy, -maxStep, maxStep);
       oppY = clamp(oppY, paddle.h/2, H - paddle.h/2);
     }
 
-    // clamp paddle
     playerY = clamp(playerY, paddle.h/2, H - paddle.h/2);
-
     draw();
 
-    // send state to guest if online host
     if (MODE === 'online-host' && conn && conn.open) {
       const now = performance.now();
-      if (now - netLastSend > 33) { // ~30fps
+      if (now - netLastSend > 33) {
         netLastSend = now;
         try { conn.send({ t:'st', x:ball.x, y:ball.y, vx:ball.vx, vy:ball.vy, p1:playerY, p2:oppY, sl:scoreL, sr:scoreR, w:W, h:H }); } catch(e){}
       }
@@ -414,170 +397,127 @@
   }
 
   function score(side){
-    if (side === 'L') scoreL++; else scoreR++;
+    if (side==='L') scoreL++; else scoreR++;
     scoreEl.textContent = scoreL + " : " + scoreR;
     scoreEl.classList.remove('bump'); void scoreEl.offsetWidth; scoreEl.classList.add('bump');
 
-    // Dynamic AI
-    const diff = scoreL - scoreR; // positive when you lead
-    if (diff <= -2) { aiSpeed = 300 * dpr; }    // easier if you're losing
-    else if (diff >= 2) { aiSpeed = 360 * dpr; } // tougher if you're winning
-    else { aiSpeed = 330 * dpr; }               // neutral
+    // adaptive AI + comeback assists
+    const diff = scoreL - scoreR;
+    if (diff <= -2){ aiSpeed = 280*dpr; aiNoise = 34*dpr; aiReact = 0.095; ball.r = 12; }
+    else if (diff >= 2){ aiSpeed = 340*dpr; aiNoise = 22*dpr; aiReact = 0.075; ball.r = 9; }
+    else { aiSpeed = 310*dpr; aiNoise = 28*dpr; aiReact = 0.085; ball.r = 10; }
 
-    // Comeback assist: ball a bit bigger when behind
-    ball.r = (diff <= -2) ? 11 : 9;
-
-    // Win condition: to 11, win by 2
+    // win to N by 2
     const lead = Math.abs(scoreL - scoreR);
-    if ((scoreL >= POINTS_TO_WIN || scoreR >= POINTS_TO_WIN) && lead >= 2) {
-      running = false;
-      overlay.classList.remove('hidden');
+    if ((scoreL >= POINTS_TO_WIN || scoreR >= POINTS_TO_WIN) && lead >= 2){
+      running=false; overlay.classList.remove('hidden');
       const t = document.querySelector('.card.home .title');
       if (t) t.textContent = (scoreL > scoreR ? 'You win!' : 'You lose');
-      setTimeout(()=>{ if (t) t.textContent = 'PONG'; }, 1200);
+      setTimeout(()=>{ if (t) t.textContent='PONG'; }, 1200);
       vib(20);
       return;
     }
 
-    // reset rally for next serve
+    // rally reset
     rallyHits = 0;
 
-    vib(15);
-    resetBall(side === 'L' ? -1 : 1);
+    // serve toward trailing side (you get serve if you're behind)
+    const serveDir = (scoreL < scoreR) ? -1 : 1; // -1 to you, +1 to AI
+    vib(12);
+    resetBall(serveDir);
   }
 
   function loop(ts){
     const dt = Math.min(0.02, ((last===0? ts-16 : ts) - last)/1000 || 0.016);
     last = ts;
     if (!paused) {
-      if (MODE === 'single' || MODE === 'online-host') stepHostOrSingle(dt);
-      if (MODE === 'online-guest') draw();
+      if (MODE==='single' || MODE==='online-host') stepHostOrSingle(dt);
+      if (MODE==='online-guest') draw();
     }
     if (running) requestAnimationFrame(loop);
   }
 
-  /*********** Start flows ***********/
   function startGame(){
-    scoreL=0; scoreR=0; scoreEl.textContent = "0 : 0";
-    playerY = H/2; oppY = H/2;
-    rallyHits = 0; flatTimer = 0; ball.r = 9;
-    resetBall(Math.random()<0.5? -1 : 1);
+    scoreL=0; scoreR=0; scoreEl.textContent="0 : 0";
+    playerY=H/2; oppY=H/2; rallyHits=0; flatTimer=0; ball.r=10;
+    // start a touch easier
+    aiSpeed = 300*dpr; aiNoise = 30*dpr; aiReact = 0.09;
+    resetBall(-1); // give first serve to player
     overlay.classList.add('hidden');
     paused=false; running=true; last=0;
     requestAnimationFrame(loop);
   }
   function setBadgesForSingle(){
     setPlayerBadge(p1img, p1name, me, 'You');
-    setPlayerBadge(p2img, p2name, { displayName:'CPU' }, 'CPU'); p2tag.textContent = 'AI';
+    setPlayerBadge(p2img, p2name, { displayName:'CPU' }, 'CPU'); p2tag.textContent='AI';
   }
 
-  btnSingle && btnSingle.addEventListener('click', ()=>{
-    MODE = 'single'; aiOn = true;
+  btnSingle?.addEventListener('click', ()=>{
+    MODE='single'; aiOn=true;
     setBadgesForSingle();
     startGame();
   });
 
-  // QUICK MATCH (needs /api/match + Vercel KV configured)
-  btnFind && btnFind.addEventListener('click', async () => {
+  // Quick Match (kept; requires /api/match + Vercel KV)
+  btnFind?.addEventListener('click', async ()=>{
     showToast('Looking for an opponent…');
-    if (!window.Peer) { showToast('Loading network libs… try again'); return; }
-
-    isHost = false; // unknown yet
-    peer = new Peer(); // uses PeerJS cloud signalling
-
-    // If someone connects to us first -> we are HOST
-    peer.on('connection', c => {
-      MODE = 'online-host'; aiOn = false; conn = c;
-      setPlayerBadge(p1img, p1name, me, 'You');
-      setPlayerBadge(p2img, p2name, null, 'Player 2'); p2tag.textContent = 'P2';
+    if (!window.Peer) { showToast('Loading network libs…'); return; }
+    isHost=false; peer=new Peer();
+    peer.on('connection', c=>{
+      MODE='online-host'; aiOn=false; conn=c;
+      setPlayerBadge(p1img, p1name, me, 'You'); setPlayerBadge(p2img, p2name, null, 'Player 2'); p2tag.textContent='P2';
       overlay.classList.add('hidden');
-      conn.on('data', onNetDataFromGuest);
-      conn.on('close', () => { showToast('Player left'); endOnline(); });
+      conn.on('data', onNetDataFromGuest); conn.on('close', ()=>{ showToast('Player left'); endOnline(); });
       startGame();
-      const u = me || {};
-      try { conn.send({ t:'hi', u: { fid:u.fid, username:u.username, displayName:u.displayName, pfpUrl:u.pfpUrl } }); } catch(e){}
+      const u=me||{}; try{ conn.send({t:'hi', u:{fid:u.fid, username:u.username, displayName:u.displayName, pfpUrl:u.pfpUrl}});}catch(e){}
     });
-
-    peer.on('error', e => { showToast('Network error'); console.warn(e); endOnline(); });
-
-    peer.on('open', async (id) => {
-      const u = me || {};
-      let resp;
-      try {
-        resp = await fetch('/api/match', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ peerId: id, user: { fid:u.fid, username:u.username, displayName:u.displayName, pfpUrl:u.pfpUrl } })
-        }).then(r => r.json());
-      } catch (e) {
-        showToast('Match server unreachable');
-        return endOnline();
-      }
-
-      if (resp && resp.opponentPeerId) {
-        MODE = 'online-guest'; aiOn = false; overlay.classList.add('hidden');
+    peer.on('error', e=>{ showToast('Network error'); console.warn(e); endOnline(); });
+    peer.on('open', async(id)=>{
+      const u=me||{}; let resp;
+      try{
+        resp = await fetch('/api/match',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({peerId:id,user:{fid:u.fid,username:u.username,displayName:u.displayName, pfpUrl:u.pfpUrl}})}).then(r=>r.json());
+      }catch(e){ showToast('Match server unreachable'); return endOnline(); }
+      if (resp?.opponentPeerId){
+        MODE='online-guest'; aiOn=false; overlay.classList.add('hidden');
         conn = peer.connect(resp.opponentPeerId);
-        conn.on('open', () => {
-          const u = me || {};
-          try { conn.send({ t:'hi', u: { fid:u.fid, username:u.username, displayName:u.displayName, pfpUrl:u.pfpUrl } }); } catch(e){}
-          running = true; last = 0; requestAnimationFrame(loop);
-        });
-        conn.on('data', onNetDataFromHost);
-        conn.on('close', () => { showToast('Disconnected'); endOnline(); });
-        setPlayerBadge(p2img, p2name, me, 'You'); p2tag.textContent = 'P2';
-      } else if (resp && resp.wait) {
-        showToast('Waiting for opponent…');
-      } else {
-        showToast('Match error');
-        endOnline();
-      }
+        conn.on('open',()=>{ const u=me||{}; try{ conn.send({t:'hi',u:{fid:u.fid,username:u.username,displayName:u.displayName, pfpUrl:u.pfpUrl}});}catch(e){} running=true; last=0; requestAnimationFrame(loop); });
+        conn.on('data', onNetDataFromHost); conn.on('close', ()=>{ showToast('Disconnected'); endOnline(); });
+        setPlayerBadge(p2img, p2name, me, 'You'); p2tag.textContent='P2';
+      } else if (resp?.wait){ showToast('Waiting for opponent…'); }
+      else { showToast('Match error'); endOnline(); }
     });
   });
 
   function endOnline(){
     running=false; overlay.classList.remove('hidden');
-    try { conn && conn.close(); } catch(e){}
-    try { peer && peer.destroy(); } catch(e){}
+    try{ conn&&conn.close(); }catch(e){}
+    try{ peer&&peer.destroy(); }catch(e){}
     conn=null; peer=null; MODE='home';
   }
-
-  // host receives guest input / hello
   function onNetDataFromGuest(msg){
-    if (!msg || typeof msg !== 'object') return;
-    if (msg.t === 'in') {
-      oppY = clamp(msg.y, paddle.h/2, H - paddle.h/2);
-    } else if (msg.t === 'hi') {
-      oppUser = msg.u || null;
-      setPlayerBadge(p2img, p2name, oppUser, 'Player 2'); p2tag.textContent = 'P2';
-    }
+    if (!msg || typeof msg!=='object') return;
+    if (msg.t==='in'){ oppY = clamp(msg.y, paddle.h/2, H - paddle.h/2); }
+    else if (msg.t==='hi'){ /* show badges if you want */ }
   }
-  // guest receives state / hello
   function onNetDataFromHost(msg){
-    if (!msg || typeof msg !== 'object') return;
-    if (msg.t === 'st') {
+    if (!msg || typeof msg!=='object') return;
+    if (msg.t==='st'){
       ball.x=msg.x; ball.y=msg.y; ball.vx=msg.vx; ball.vy=msg.vy;
       playerY=msg.p1; oppY=msg.p2; scoreL=msg.sl; scoreR=msg.sr;
       scoreEl.textContent = scoreL + " : " + scoreR;
-      if (W!==msg.w || H!==msg.h) resize();
-      draw();
-    } else if (msg.t === 'hi') {
-      oppUser = msg.u || null;
-      setPlayerBadge(p1img, p1name, oppUser, 'P1');
-      setPlayerBadge(p2img, p2name, me, 'You'); p2tag.textContent = 'P2';
-    }
+      if (W!==msg.w || H!==msg.h) resize(); draw();
+    } else if (msg.t==='hi'){ /* show badges if you want */ }
   }
 
-  /*********** Boot ***********/
   function init(){ resize(); draw(); }
   init();
   </script>
 
-  <!-- Farcaster: hide splash once ready (robust, no imports) -->
   <script>
   (function () {
     function callReadyFrom(obj){
-      try{
-        if (obj && obj.actions && typeof obj.actions.ready === 'function') { obj.actions.ready(); return true; }
-      }catch(e){}
+      try{ if (obj && obj.actions && typeof obj.actions.ready==='function'){ obj.actions.ready(); return true; } }catch(e){}
       return false;
     }
     function tryAll(){
@@ -588,65 +528,10 @@
       return false;
     }
     if (!tryAll()) {
-      requestAnimationFrame(function(){ requestAnimationFrame(tryAll); });
-      var tries = 0, t = setInterval(function(){ if (tryAll() || ++tries > 60) clearInterval(t); }, 100);
+      requestAnimationFrame(()=>requestAnimationFrame(tryAll));
+      let n=0, t=setInterval(()=>{ if (tryAll() || ++n>60) clearInterval(t); }, 100);
     }
   })();
   </script>
-  
-  <!-- Farcaster: ALWAYS call ready() (Android-safe, no optional chaining) -->
-<script>
-(function () {
-  function callReadyFrom(obj){
-    try{
-      if (obj && obj.actions && typeof obj.actions.ready === 'function') {
-        obj.actions.ready();
-        return true;
-      }
-    }catch(e){}
-    return false;
-  }
-  function tryAll(){
-    if (callReadyFrom(window.__fc_sdk)) return true;     // official global
-    if (window.farcaster && callReadyFrom(window.farcaster.sdk)) return true;
-    if (window.frame && callReadyFrom(window.frame.sdk)) return true;
-    if (callReadyFrom(window.sdk)) return true;          // some clients expose this
-    return false;
-  }
-
-  // 1) Try immediately and after first paint
-  if (!tryAll()) {
-    requestAnimationFrame(function(){ requestAnimationFrame(tryAll); });
-  }
-
-  // 2) Keep retrying for a few seconds (Android WebView may inject late)
-  var tries = 0, t = setInterval(function(){
-    if (tryAll() || ++tries > 60) clearInterval(t); // ~6s
-  }, 100);
-
-  // 3) Load SDK from CDN as a fallback and try again
-  function loadUMD(){
-    var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@latest/dist/index.min.js';
-    s.onload = function(){ setTimeout(tryAll, 50); };
-    document.head.appendChild(s);
-  }
-  try {
-    // Some environments support ESM import; if it fails we still load UMD
-    import('https://esm.sh/@farcaster/miniapp-sdk@latest')
-      .then(function(mod){
-        var sdk = mod.sdk || mod.default || mod;
-        if (sdk && sdk.actions && typeof sdk.actions.ready === 'function') {
-          try { sdk.actions.ready(); } catch(e) {}
-          window.__fc_sdk = sdk;
-        }
-      })
-      .catch(function(){ loadUMD(); });
-  } catch(e) { loadUMD(); }
-
-  // 4) Also try on full window load
-  window.addEventListener('load', function(){ setTimeout(tryAll, 50); });
-})();
-</script>
 </body>
 </html>
