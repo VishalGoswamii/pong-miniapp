@@ -5,12 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>Pong • Classic</title>
 
-<!-- Farcaster Mini App -->
+<!-- Farcaster Mini App + Frame (for visible embed in casts) -->
 <meta name="fc:miniapp" content='{
   "version": "1",
   "imageUrl": "https://pong-miniapp.vercel.app/og.png",
   "button": {
     "title": "Play Pong",
+    "action": {
+      "type": "launch_frame",
+      "name": "Pong",
+      "url": "https://pong-miniapp.vercel.app/",
+      "splashImageUrl": "https://pong-miniapp.vercel.app/icon-200.png",
+      "splashBackgroundColor": "#0b0f1a"
+    }
+  }
+}' />
+<meta name="fc:frame" content='{
+  "version": "next",
+  "imageUrl": "https://pong-miniapp.vercel.app/og.png",
+  "button": {
+    "title": "Play Now",
     "action": {
       "type": "launch_frame",
       "name": "Pong",
@@ -191,7 +205,7 @@ canvas{display:block; width:100%; height:100%; touch-action:none}
         <button id="btnLB" class="btn">🏆 Leaderboard</button>
       </div>
 
-      <div class="hint">Swipe to move • Win by 2 • Points shown only if you win</div>
+      <div class="hint">Swipe to move • <b>First to 7 wins</b> • Points shown only if you win</div>
     </div>
   </div>
 </section>
@@ -218,7 +232,8 @@ canvas{display:block; width:100%; height:100%; touch-action:none}
     <div class="actions2">
       <button class="btn btn-primary" id="btnAgain">Play Again</button>
       <button class="btn ghost" id="btnHome">Home</button>
-      <button class="btn ghost" id="btnShare">Share</button>
+      <button class="btn" id="btnCast">🐟 Cast on Farcaster</button>
+      <button class="btn ghost" id="btnShare">Share / Copy</button>
     </div>
   </div>
 </section>
@@ -279,6 +294,7 @@ const btnLBBack = document.getElementById('btnLBBack');
 const btnAgain = document.getElementById('btnAgain');
 const btnHome = document.getElementById('btnHome');
 const btnShare = document.getElementById('btnShare');
+const btnCast = document.getElementById('btnCast');
 
 const pfp = document.getElementById('pfp');
 const uname = document.getElementById('uname');
@@ -336,7 +352,7 @@ let playerY=0, oppY=0;
 const ball = { x:0, y:0, r:10, vx:0, vy:0, baseSpeed:360 };
 
 let scoreL=0, scoreR=0;
-const POINTS_TO_WIN = 11;
+const POINTS_TO_WIN = 7; // First to 7 wins
 
 // AI
 let aiOn=true, aiSpeed=310*dpr, aiReact=0.085, aiTimer=0, aiAimY=0, aiNoise=28*dpr;
@@ -353,13 +369,16 @@ let lastPointerY=null, pointerVy=0;
 // anti-stall
 let flatTimer=0;
 
+// render throttle during countdown
+let lastDrawAt = 0;
+
 // points (shown only on win)
 let points=0;
 const PTS_HIT=5, PTS_GOAL=100, PTS_WIN=250;
 
 // serve state for countdown
 let serving=false; let serveStore=null;
-let countdownActive = false; // NEW: track countdown life
+let countdownActive = false;
 
 /* ========= Resize ========= */
 function resize(){
@@ -402,9 +421,7 @@ function startCountdown(stepMs = 600){
     const start = performance.now();
     countdownEl.classList.add('show');
 
-    const drawCount = (n) => {
-      countdownEl.innerHTML = `<div class="count">${n}</div>`;
-    };
+    const drawCount = (n) => { countdownEl.innerHTML = `<div class="count">${n}</div>`; };
 
     function tick(now){
       const elapsed = now - start;
@@ -553,8 +570,12 @@ function step(dt){
     ball.x += ball.vx*dt; ball.y += ball.vy*dt;
   }
 
-  // trail
-  trail.push({x:ball.x,y:ball.y}); if (trail.length>10) trail.shift();
+  // trail (skip while active countdown to reduce jank)
+  if (!serving || !countdownActive){
+    trail.push({x:ball.x,y:ball.y}); if (trail.length>10) trail.shift();
+  } else {
+    if (trail.length) trail.length = 0;
+  }
 
   // anti-stall (disabled during serving)
   if (!serving){
@@ -630,13 +651,19 @@ function step(dt){
   }
 
   playerY = clamp(playerY, paddle.h/2, H - paddle.h/2);
-  draw();
+
+  // draw throttled during countdown to reduce jank
+  const now = performance.now();
+  if (!countdownActive || (now - lastDrawAt) > 33){
+    draw();
+    lastDrawAt = now;
+  }
 
   // net sync (host)
   if (NETMODE==='online-host' && conn && conn.open){
-    const now = performance.now();
-    if (now - netLastSend > 33){
-      netLastSend = now;
+    const tnow = performance.now();
+    if (tnow - netLastSend > 33){
+      netLastSend = tnow;
       try{ conn.send({ t:'st', x:ball.x, y:ball.y, vx:ball.vx, vy:ball.vy, p1:playerY, p2:oppY, sl:scoreL, sr:scoreR, w:W, h:H }); }catch(e){}
     }
   }
@@ -665,8 +692,8 @@ function score(side){
   else if (diff >= 2){  aiSpeed=340*dpr; aiReact=0.075; ball.r=9; }
   else {                aiSpeed=310*dpr; aiReact=0.085; ball.r=10; }
 
-  const lead = Math.abs(scoreL - scoreR);
-  if ((scoreL >= POINTS_TO_WIN || scoreR >= POINTS_TO_WIN) && lead >= 2){
+  // FIRST TO 7 (no win-by-2)
+  if (scoreL >= POINTS_TO_WIN || scoreR >= POINTS_TO_WIN){
     pauseGame();
     go('result');
     if (scoreL > scoreR){
@@ -685,8 +712,8 @@ function score(side){
   }
 
   vib(12);
-  // fair serve to trailing side — with countdown
-  const serveDir = (scoreL < scoreR) ? -1 : 1;
+  // serve alternates (no lead rule now)
+  const serveDir = (side==='L') ? 1 : -1;
   resetBall(serveDir);
 }
 
@@ -704,6 +731,7 @@ function startGame(){
   playerY=H/2; oppY=H/2; ball.r=10; flatTimer=0;
   aiSpeed=300*dpr; aiReact=0.09;
   resize();
+  lastDrawAt = 0;
   resetBall(-1); // start with countdown
   paused=false; running=true; last=0;
   if (rafId) cancelAnimationFrame(rafId);
@@ -813,6 +841,15 @@ function onNetDataFromHost(msg){
   }
 }
 
+/* ========= Share / Cast helpers ========= */
+function openCastComposer(pts){
+  const text = pts ? `I just won Pong with ${pts} pts! 🏓` : `I just played Pong! 🏓`;
+  const url = new URL(location.href);
+  if (pts) url.searchParams.set('s', String(pts)); // include score in URL for context
+  const compose = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(url.toString())}`;
+  window.open(compose, '_blank');
+}
+
 /* ========= Buttons ========= */
 btnSingle.addEventListener('click', ()=> startGame());
 btnFind.addEventListener('click', async ()=>{
@@ -832,8 +869,14 @@ btnLB.addEventListener('click', async ()=>{ go('leaderboard'); await loadLeaderb
 btnLBBack.addEventListener('click', ()=> go('home'));
 btnAgain.addEventListener('click', ()=> startGame());
 btnHome.addEventListener('click', ()=> go('home'));
+
+btnCast.addEventListener('click', ()=>{
+  const pts = (resPts.textContent==='—') ? 0 : Number(resPts.textContent)||0;
+  openCastComposer(pts);
+});
 btnShare.addEventListener('click', ()=>{
-  const text = (resPts.textContent==='—') ? `I just played Pong!` : `I won Pong with ${resPts.textContent} pts!`;
+  const pts = (resPts.textContent==='—') ? 0 : Number(resPts.textContent)||0;
+  const text = pts ? `I won Pong with ${pts} pts!` : `I just played Pong!`;
   try{
     if (navigator.share){ navigator.share({ text, url: location.href }); }
     else { navigator.clipboard.writeText(text + ' ' + location.href); showToast('Copied'); }
