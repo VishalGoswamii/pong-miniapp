@@ -245,7 +245,7 @@ function ensureReady(){
   if (window.farcaster && callReadyFrom(window.farcaster.sdk)) return true;
   if (window.frame && callReadyFrom(window.frame.sdk)) return true;
   if (callReadyFrom(window.sdk)) return true;
-  // retry briefly for mini-app environments that hydrate late
+  // retry briefly for late hydration
   let tries=0; const t=setInterval(()=>{ if (tries++>30 || ensureReady()) clearInterval(t); },100);
   return false;
 }
@@ -344,7 +344,7 @@ let points=0;
 const PTS_HIT=5, PTS_GOAL=100, PTS_WIN=250;
 
 // serve state for countdown
-let serving=false; let serveStore=null; let cdTimer=null;
+let serving=false; let serveStore=null;
 
 /* ========= Resize ========= */
 function resize(){
@@ -365,23 +365,24 @@ addEventListener('resize', ()=>{ if (PAGES.game.classList.contains('active')) re
 const clamp=(v,min,max)=>v<min?min:v>max?max:v;
 const css=(n)=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
-/* Start-of-round with 3-2-1 */
-function startCountdown(onDone){
-  clearInterval(cdTimer);
-  countdownEl.classList.add('show');
-  const seq=[3,2,1];
-  let i=0;
-  const tick=()=>{
-    if (i>=seq.length){
-      countdownEl.classList.remove('show');
-      countdownEl.innerHTML='';
-      onDone&&onDone();
-      return;
-    }
-    countdownEl.innerHTML = `<div class="count">${seq[i++]}</div>`;
-  };
-  tick();
-  cdTimer=setInterval(tick, 600); // 0.6s per number
+/* Promise-based 3-2-1 countdown (no leaking intervals) */
+function startCountdown(){
+  return new Promise(resolve=>{
+    const seq=[3,2,1];
+    let i=0;
+    countdownEl.classList.add('show');
+    const next=()=>{
+      if (i<seq.length){
+        countdownEl.innerHTML = `<div class="count">${seq[i++]}</div>`;
+        setTimeout(next, 600);
+      } else {
+        countdownEl.classList.remove('show');
+        countdownEl.innerHTML='';
+        resolve();
+      }
+    };
+    next();
+  });
 }
 
 function resetBall(dir=1){
@@ -389,18 +390,20 @@ function resetBall(dir=1){
   ball.x=W/2; ball.y=H/2;
   playerY=H/2; oppY=H/2;
 
-  // compute serve velocity but hold it
+  // compute serve velocity but hold it until countdown completes
   const angle=(Math.random()*0.5 - 0.25);
   const sp = ball.baseSpeed * dpr;
   serveStore = { vx: Math.cos(angle)*sp*dir, vy: Math.sin(angle)*sp };
-  ball.vx=0; ball.vy=0; serving=true;
 
-  // grace until after countdown
-  noScoreUntil=performance.now()+4000;
+  // freeze ball while counting
+  ball.vx=0; ball.vy=0; serving=true;
   trail.length=0;
 
+  // grace until after countdown so early walls/outs don't count
+  noScoreUntil=performance.now()+4000;
+
   // show 3-2-1, then release the ball
-  startCountdown(()=>{
+  startCountdown().then(()=>{
     serving=false;
     ball.vx=serveStore.vx; ball.vy=serveStore.vy;
     noScoreUntil=performance.now()+350;
@@ -483,21 +486,32 @@ function draw(){
 function step(dt){
   const oldX=ball.x, r=ball.r*dpr;
 
-  ball.x += ball.vx*dt; ball.y += ball.vy*dt;
+  // Freeze physics while serving (prevents vertical-only movement)
+  if (!serving){
+    ball.x += ball.vx*dt; ball.y += ball.vy*dt;
+  }
 
+  // trail
   trail.push({x:ball.x,y:ball.y}); if (trail.length>10) trail.shift();
-  if (Math.abs(ball.vy) < 30*dpr) flatTimer += dt; else flatTimer = 0;
-  if (flatTimer > 1.0) { ball.vy += (Math.random()>0.5?1:-1)*50*dpr; flatTimer = 0; }
 
+  // anti-stall (disabled during serving)
+  if (!serving){
+    if (Math.abs(ball.vy) < 30*dpr) flatTimer += dt; else flatTimer = 0;
+    if (flatTimer > 1.0) { ball.vy += (Math.random()>0.5?1:-1)*50*dpr; flatTimer = 0; }
+  } else {
+    flatTimer = 0;
+  }
+
+  // walls
   if (ball.y < r){ ball.y = r; ball.vy *= -1; }
   if (ball.y > H - r){ ball.y = H - r; ball.vy *= -1; }
 
+  // paddles (only when ball is moving horizontally)
   const px=22*dpr, ax=W-(22*dpr + paddle.w);
   const pTop=(playerY - paddle.h/2) - playerHitboxBonus, pBot=(playerY + paddle.h/2) + playerHitboxBonus;
   const aTop=(oppY    - paddle.h/2) + aiHitboxTight,     aBot=(oppY    + paddle.h/2) - aiHitboxTight;
 
-  // paddle collisions only when ball is moving horizontally (not during countdown)
-  if (ball.vx < 0){
+  if (!serving && ball.vx < 0){
     if (ball.x - r <= px + paddle.w && ball.x - r >= px && ball.y >= pTop && ball.y <= pBot){
       ball.x = px + paddle.w + r;
       const t=(ball.y - playerY)/(paddle.h/2);
@@ -508,7 +522,7 @@ function step(dt){
       points += PTS_HIT;
       vib(8);
     }
-  } else if (ball.vx > 0){
+  } else if (!serving && ball.vx > 0){
     if (ball.x + r >= ax && ball.x + r <= ax + paddle.w && ball.y >= aTop && ball.y <= aBot){
       ball.x = ax - r;
       const t=(ball.y - oppY)/(paddle.h/2);
@@ -580,7 +594,7 @@ function clampBounceAndSpeed(dirSign){
 
 /* ========= Score / End ========= */
 function score(side){
-  if (side==='L'){ scoreL++; points += PTS_GOAL; } else { scoreR++; }
+  if (side==='L'){ scoreL++; points += 100; } else { scoreR++; }
   scoreEl.textContent = `${scoreL} : ${scoreR}`;
   scoreEl.classList.remove('bump'); void scoreEl.offsetWidth; scoreEl.classList.add('bump');
 
@@ -594,7 +608,7 @@ function score(side){
     pauseGame();
     go('result');
     if (scoreL > scoreR){
-      points += PTS_WIN;
+      points += 250;
       resTitle.textContent = 'You win!';
       resPts.textContent = points;
       if (points > best){ best = points; localStorage.setItem('pong_best', String(best)); }
@@ -736,7 +750,7 @@ function init(){
 }
 init();
 
-/* ========= Also try Farcaster ready ASAP for environments that expose global sdk late ========= */
+/* ========= Also try Farcaster ready ASAP again ========= */
 (function(){ ensureReady(); })();
 </script>
 </body>
