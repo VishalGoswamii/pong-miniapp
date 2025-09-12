@@ -192,3 +192,126 @@
     for (let i=state.sparks.length-1;i>=0;i--){
       const p=state.sparks[i]; p.t+=dt;
       p.x+=p.vx*dt; p.y+=p.vy*dt;
+      p.vx*=0.98; p.vy*=0.98;
+      if (p.t>=p.life) state.sparks.splice(i,1);
+    }
+  }
+
+  // ---------- Rendering (neon style) ----------
+  function draw(){
+    const w=state.cssW, h=state.cssH;
+
+    // deep space background with subtle stars
+    ctx.fillStyle = '#0b0b14'; ctx.fillRect(0,0,w,h);
+    ctx.fillStyle = '#0f1430';
+    for (let y=0;y<h;y+=26){ ctx.fillRect(((y*19)%w), y, 2, 2); }
+
+    // dotted midline
+    ctx.fillStyle = '#1c2545';
+    const mid = (w/2|0)-1;
+    for (let y=0;y<h;y+=DOT_H+DOT_GAP) ctx.fillRect(mid, y, DOT_W, DOT_H);
+
+    // paddles (rounded white with soft glow)
+    ctx.save();
+    ctx.shadowColor = 'rgba(255,255,255,.35)';
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = '#ffffff';
+    roundedRect(12, state.lY, PADDLE_W, PADDLE_H, PADDLE_RADIUS); ctx.fill();
+    roundedRect(w - PADDLE_W - 12, state.rY, PADDLE_W, PADDLE_H, PADDLE_RADIUS); ctx.fill();
+    ctx.restore();
+
+    // sparks
+    for (const p of state.sparks){
+      const a = 1 - (p.t/p.life);
+      ctx.fillStyle = p.color.replace('0.9', (0.2 + 0.7*a).toFixed(2));
+      ctx.beginPath(); ctx.arc(p.x, p.y, 2.2*a+0.6, 0, Math.PI*2); ctx.fill();
+    }
+
+    // ball: glowing comet (orange core + purple/orange trail)
+    for (const b of state.balls){
+      drawComet(b.x, b.y, b.vx, b.vy);
+      // bright core
+      const g=ctx.createRadialGradient(b.x+BALL/2,b.y+BALL/2,0,b.x+BALL/2,b.y+BALL/2,10);
+      g.addColorStop(0,'rgba(255,205,120,1)');
+      g.addColorStop(0.4,'rgba(255,155,13,0.95)');
+      g.addColorStop(1,'rgba(255,155,13,0)');
+      ctx.fillStyle=g;
+      ctx.beginPath(); ctx.arc(b.x+BALL/2,b.y+BALL/2,9,0,Math.PI*2); ctx.fill();
+      // white square core for that pixel pop
+      ctx.fillStyle='#fff'; ctx.fillRect(b.x, b.y, BALL, BALL);
+    }
+
+    // scores (big white, top)
+    ctx.font = SCORE_FONT; ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillStyle='#ffffff';
+    ctx.fillText(String(state.scoreL), w*0.25, 8);
+    ctx.fillText(String(state.scoreR), w*0.75, 8);
+
+    // combo (bottom-right UI element)
+    comboEl.textContent = String(Math.max(state.rally,0));
+  }
+
+  function drawComet(x,y,vx,vy){
+    const len = clamp(Math.hypot(vx,vy)*0.028, 12, 42);
+    const ang = Math.atan2(vy,vx);
+    ctx.save();
+    ctx.translate(x+BALL/2, y+BALL/2);
+    ctx.rotate(ang);
+    // outer purple haze
+    let grd = ctx.createLinearGradient(-len*1.2,0,0,0);
+    grd.addColorStop(0,'rgba(122,45,255,0)');
+    grd.addColorStop(1,'rgba(122,45,255,0.35)');
+    ctx.fillStyle=grd; ctx.fillRect(-len*1.2,-4, len*1.2, 8);
+    // inner orange trail
+    grd = ctx.createLinearGradient(-len,0,0,0);
+    grd.addColorStop(0,'rgba(255,155,13,0)');
+    grd.addColorStop(1,'rgba(255,155,13,0.95)');
+    ctx.fillStyle=grd; ctx.fillRect(-len,-2.5, len, 5);
+    ctx.restore();
+  }
+
+  // ---------- Loop ----------
+  function loop(ts){
+    if (!state.running){ state.last=0; requestAnimationFrame(loop); return; }
+    if (!state.last) state.last=ts;
+    let dt=(ts-state.last)/1000; state.last=ts;
+    state.accum = Math.min(MAX_ACCUM, state.accum+dt);
+    while(state.accum>=FIXED_DT){
+      // countdown freeze
+      if (state.counting){
+        const el=(performance.now()-state.t0)/1000;
+        if (el>=3) state.counting=false;
+      } else {
+        step(FIXED_DT);
+      }
+      state.accum-=FIXED_DT;
+    }
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- Input & lifecycle ----------
+  window.addEventListener('keydown', e=>{
+    const d=true;
+    if (e.key==='ArrowUp'||e.key==='w'||e.key==='W'){ keys.up=true; e.preventDefault(); }
+    if (e.key==='ArrowDown'||e.key==='s'||e.key==='S'){ keys.down=true; e.preventDefault(); }
+  },{passive:false});
+  window.addEventListener('keyup', e=>{
+    if (e.key==='ArrowUp'||e.key==='w'||e.key==='W'){ keys.up=false; e.preventDefault(); }
+    if (e.key==='ArrowDown'||e.key==='s'||e.key==='S'){ keys.down=false; e.preventDefault(); }
+  },{passive:false});
+  canvas.addEventListener('pointerdown', e=>{ pointerY=e.clientY; }, {passive:true});
+  window.addEventListener('pointermove', e=>{ if(pointerY!=null) pointerY=e.clientY; }, {passive:true});
+  window.addEventListener('pointerup', ()=>{ pointerY=null; }, {passive:true});
+
+  window.addEventListener('resize', sizeCanvas, {passive:true});
+  document.addEventListener('visibilitychange', ()=>{ state.running=!document.hidden; state.last=0; });
+
+  // ---------- Init ----------
+  function init(){
+    sizeCanvas(); reset(); requestAnimationFrame(loop);
+  }
+  init();
+})();
+</script>
+</body>
+</html>
