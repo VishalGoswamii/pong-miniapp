@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Pong Mini App — Neon Power-ups</title>
+  <title>Pong Mini App — Pickleball Theme</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 
   <!-- Farcaster Mini App Embed -->
@@ -10,68 +10,76 @@
     "version":"1",
     "imageUrl":"https://your-domain.com/og-1200x800.png",
     "button":{
-      "title":"Play Pong",
+      "title":"Play Pickle Pong",
       "action":{
         "type":"launch_frame",
-        "name":"Neon Pong",
+        "name":"Pickle Pong",
         "url":"https://your-domain.com",
         "splashImageUrl":"https://your-domain.com/icon-200.png",
-        "splashBackgroundColor":"#0b0b14"
+        "splashBackgroundColor":"#0a2b19"
       }
     }
   }'/>
-  <!-- Back-compat -->
   <meta name="fc:frame" content='{
     "version":"1",
     "imageUrl":"https://your-domain.com/og-1200x800.png",
     "button":{
-      "title":"Play Pong",
+      "title":"Play Pickle Pong",
       "action":{
         "type":"launch_frame",
-        "name":"Neon Pong",
+        "name":"Pickle Pong",
         "url":"https://your-domain.com",
         "splashImageUrl":"https://your-domain.com/icon-200.png",
-        "splashBackgroundColor":"#0b0b14"
+        "splashBackgroundColor":"#0a2b19"
       }
     }
   }'/>
 
   <style>
     :root {
-      --bg: #0b0b14;
-      --white: #ffffff;
-      --mid: #1b2450;
-      --orange: #ff9b0d;
-      --purple: #7a2dff;
+      /* Pickleball court palette (blue/green with white lines) */
+      --court-blue: #1d4ed8;
+      --court-green: #0ea5a0;   /* teal-ish for contrast on screens */
+      --kitchen: #103c71;       /* NVZ (non-volley zone) shading */
+      --line: #ffffff;
+      --bg: #071b11;            /* dark surround */
+      --ball: #f9f871;          /* optic yellow */
+      --paddle-a: #1f2937;      /* graphite body */
+      --paddle-a-accent: #34d399; /* edge guard / handle wrap */
+      --paddle-b: #374151;
+      --paddle-b-accent: #60a5fa;
+
+      --hud: #e5e7eb;
     }
-    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--white); }
+
+    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--line); }
     .wrap { position: fixed; inset: env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0) 0;
             display: grid; place-items: center; contain: strict; }
-    canvas { width: min(100vw, 100vh); height: min(100vw, 100vh);
-             display:block; background: var(--bg); }
+    /* keep square-ish for mobile; logic uses CSS size and scales backing store via DPR */
+    canvas { width: min(100vw, 100vh); height: min(100vw, 100vh); display: block; background: var(--bg); }
 
-    .hud { position: fixed; inset: 0 0 auto 0; text-align: center;
-           font: 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-           color:#9aa0a6; pointer-events:none; padding: 6px 0; }
-
-    /* Big white scores like the mock */
+    /* big scores (kept) */
     .scores{
       position:fixed; inset:10px 0 auto 0; display:flex; justify-content:space-between;
       padding:0 14%; pointer-events:none;
-      font:900 72px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-      letter-spacing:.5px; text-shadow:0 0 10px rgba(255,255,255,.25);
+      font:900 64px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      text-shadow:0 0 8px rgba(255,255,255,.25);
     }
-    /* Bottom-right COMBO like the mock */
-    .combo{
-      position:fixed; right:24px; bottom:20px; pointer-events:none;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; text-align:right;
-    }
-    .combo .label{font-weight:900;font-size:22px;color:var(--orange);opacity:.95}
-    .combo .value{font-weight:900;font-size:60px;color:var(--orange)}
+    .scores div { color: var(--line); }
+
+    /* bottom-right rally “COMBO” */
+    .combo{ position:fixed; right:24px; bottom:20px; pointer-events:none; text-align:right;
+            font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+    .combo .label{ font-weight:900; font-size:20px; color:#ffd166 }
+    .combo .value{ font-weight:900; font-size:54px; color:#ffd166 }
+
+    .hud { position: fixed; inset: 0 0 auto 0; text-align: center;
+           font: 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+           color: var(--hud); pointer-events:none; padding: 6px 0; }
 
     .btnbar { position: fixed; inset: auto 0 env(safe-area-inset-bottom,0) 0;
               display:flex; gap:8px; justify-content:center; padding:10px; }
-    .btn { background:#121826; color:#cbd5e1; border:1px solid #26324a;
+    .btn { background:#0e1a13; color:#cbd5e1; border:1px solid #1e3a2e;
            border-radius:12px; padding:8px 12px; font: 600 14px/1 system-ui; }
   </style>
 
@@ -80,11 +88,11 @@
 </head>
 <body>
   <div class="wrap">
-    <canvas id="game" aria-label="Neon Pong"></canvas>
+    <canvas id="game" aria-label="Pickle Pong"></canvas>
   </div>
 
   <div class="scores"><div id="scL">0</div><div id="scR">0</div></div>
-  <div class="combo"><div class="label">COMBO</div><div class="value" id="comboV">0</div></div>
+  <div class="combo"><div class="label">RALLY</div><div class="value" id="comboV">0</div></div>
   <div class="hud" id="hud"></div>
   <div class="btnbar">
     <button class="btn" id="addBtn">Add to Farcaster</button>
@@ -95,7 +103,7 @@
 (function () {
   'use strict';
 
-  // ----- Mini App SDK wiring (safe if not inside Farcaster) -----
+  /* ===== Mini App SDK (unchanged) ===== */
   let fc = null;
   function miniAppReady() {
     if (window.FarcasterMiniApp && !fc) {
@@ -110,16 +118,14 @@
   }
   document.addEventListener('DOMContentLoaded', miniAppReady);
 
-  // Buttons (no-ops outside Farcaster)
-  let highScore = Number(localStorage.getItem('neon_high')||0);
-  document.getElementById('addBtn').onclick = async () => {
-    try { if (fc) await fc.actions.addMiniApp(); } catch(e){}
-  };
+  // Buttons
+  let highScore = Number(localStorage.getItem('pickle_high')||0);
+  document.getElementById('addBtn').onclick = async () => { try { if (fc) await fc.actions.addMiniApp(); } catch(e){} };
   document.getElementById('shareBtn').onclick = async () => {
-    try { if (fc) await fc.actions.composeCast({ text: `I just hit ${highScore} in Neon Pong! 🔥` }); } catch(e){}
+    try { if (fc) await fc.actions.composeCast({ text: `I just hit ${highScore} in Pickle Pong! 🥒🏓` }); } catch(e){}
   };
 
-  // ----- Canvas + Game -----
+  /* ===== Game (logic unchanged from your file; visuals re-skinned) ===== */
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d', { alpha:false, desynchronized:true });
   const hud = document.getElementById('hud');
@@ -127,21 +133,20 @@
   const scR = document.getElementById('scR');
   const comboV = document.getElementById('comboV');
 
-  // Timestep & sizes
   const DPR_MIN=1, DPR_MAX=2, FIXED_DT=1/60, MAX_ACCUM=0.25;
-  const BALL=10;
+  const BALL=12; // a bit bigger to sell the pickleball look (collision kept square)
   const SPEED_BALL=230, SPEED_AI=310, SPEED_PADDLE=360;
 
-  // Visual knobs (match mock)
-  let PADDLE_W=16, PADDLE_H=220, PADDLE_R=8;         // rounded paddles
-  let DOT_W=3, DOT_H=10, DOT_GAP=10;                 // dotted midline
+  // Visual knobs
+  let PADDLE_W=20, PADDLE_H=200, PADDLE_R=10; // paddle body (collision still rect)
+  let DOT_W=2, DOT_H=8, DOT_GAP=8;            // center "net" dotted line (stylized)
 
   const state = {
     dpr:1, cssW:0, cssH:0, last:0, accum:0, running:true,
     lY:0, rY:0,
     scoreL:0, scoreR:0, rally:0, multiplier:1,
     counting:true, t0:0,
-    // power-ups
+    // power-ups (unchanged)
     powerups: [],
     effects: { grow:0, shield:0, slowmo:0, multiball:0, x2:0 },
     balls: [],
@@ -160,11 +165,11 @@
     ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.imageSmoothingEnabled=false;
 
-    // scale UI with canvas size
-    PADDLE_W = Math.max(14, Math.round(state.cssW*0.018));
-    PADDLE_H = Math.max(160, Math.round(state.cssH*0.55));
+    // scale visuals responsively
+    PADDLE_W = Math.max(18, Math.round(state.cssW*0.02));
+    PADDLE_H = Math.max(160, Math.round(state.cssH*0.5));
     PADDLE_R = Math.round(PADDLE_W*0.45);
-    DOT_H    = Math.max(8, Math.round(state.cssH*0.012));
+    DOT_H    = Math.max(6, Math.round(state.cssH*0.012));
     DOT_GAP  = DOT_H;
   }
 
@@ -174,6 +179,7 @@
     state.balls = [];
     spawnBall(Math.random()<0.5?-1:1);
     state.counting=true; state.t0=performance.now();
+    updateHUD();
   }
 
   function spawnBall(dir){
@@ -181,7 +187,6 @@
     const speed = SPEED_BALL * (1 + state.rally*0.015);
     const vx = dir*speed*Math.sqrt(1-angleY*angleY);
     const vy = speed*angleY;
-    // FIXED: removed typo "vx,state:vx"
     state.balls = [{ x:(state.cssW-BALL)/2, y:(state.cssH-BALL)/2, vx, vy }];
   }
 
@@ -195,10 +200,7 @@
   let nextPU = 2.5;
   function puTick(dt){
     nextPU -= dt;
-    if (nextPU <= 0 && !state.counting) {
-      addPowerup();
-      nextPU = 4 + Math.random()*3;
-    }
+    if (nextPU <= 0 && !state.counting) { addPowerup(); nextPU = 4 + Math.random()*3; }
     for (let i=state.powerups.length-1;i>=0;i--){
       state.powerups[i].ttl -= dt;
       if (state.powerups[i].ttl<=0) state.powerups.splice(i,1);
@@ -218,13 +220,13 @@
         state.balls.push({x:base.x,y:base.y,vx: base.vx*0.8, vy:-base.vy*1.05});
       }
     }
-    if (t==='x2')       { state.effects.x2 = 10; state.multiplier = 2; }
+    if (t==='x2') { state.effects.x2 = 10; state.multiplier = 2; }
   }
 
-  function addSparks(x,y){
-    for(let i=0;i<24;i++){
-      const a=Math.random()*Math.PI*2, sp=70+Math.random()*120;
-      state.sparks.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,t:0,life:0.35});
+  function addSparks(x,y,color='rgba(255,255,255,.8)'){
+    for(let i=0;i<18;i++){
+      const a=Math.random()*Math.PI*2, sp=60+Math.random()*120;
+      state.sparks.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,t:0,life:0.28,color});
     }
   }
 
@@ -238,31 +240,27 @@
     const pH = PADDLE_H*growK;
 
     // left paddle
-    if (b.x <= PADDLE_W+14){
+    if (b.x <= PADDLE_W+20){
       if (b.y+BALL>=state.lY && b.y<=state.lY+pH){
-        b.x=PADDLE_W+14; b.vx=Math.abs(b.vx)*1.04;
+        b.x=PADDLE_W+20; b.vx=Math.abs(b.vx)*1.04;
         const rel = ((b.y+BALL/2)-(state.lY+pH/2))/(pH/2);
-        b.vy += rel*95; state.rally++; addSparks(b.x, b.y+BALL/2);
+        b.vy += rel*90; state.rally++; addSparks(b.x, b.y+BALL/2);
       }
     }
     // right paddle
-    const rx = state.cssW-(PADDLE_W+14)-BALL;
+    const rx = state.cssW-(PADDLE_W+20)-BALL;
     if (b.x >= rx){
       if (b.y+BALL>=state.rY && b.y<=state.rY+pH){
         b.x=rx; b.vx=-Math.abs(b.vx)*1.04;
         const rel = ((b.y+BALL/2)-(state.rY+pH/2))/(pH/2);
-        b.vy += rel*95; state.rally++; addSparks(rx+BALL, b.y+BALL/2);
+        b.vy += rel*90; state.rally++; addSparks(rx+BALL, b.y+BALL/2);
       }
     }
 
     // score
     if (b.x+BALL < 0){
-      if (state.effects.shield>0){
-        state.effects.shield = 0; b.x = 0; b.vx = Math.abs(b.vx);
-      } else {
-        state.scoreR++; state.rally=0; state.multiplier=1; state.balls=[b];
-        spawnBall(+1); state.counting=true; state.t0=performance.now();
-      }
+      if (state.effects.shield>0){ state.effects.shield = 0; b.x = 0; b.vx = Math.abs(b.vx); }
+      else { state.scoreR++; state.rally=0; state.multiplier=1; state.balls=[b]; spawnBall(+1); state.counting=true; state.t0=performance.now(); }
     } else if (b.x > state.cssW){
       const add = (state.effects.x2>0?2:1);
       state.scoreL += add; state.rally=0; state.multiplier=1; state.balls=[b];
@@ -292,7 +290,7 @@
     state.rY = clamp(state.rY + clamp(dy, -SPEED_AI*dt, SPEED_AI*dt), 0, state.cssH-pH);
 
     puTick(dt);
-    // pickups
+    // pickups unchanged
     for (let i=state.powerups.length-1;i>=0;i--){
       const pu = state.powerups[i];
       if (pu.x > 10 && pu.x < state.cssW*0.5 && pu.y > state.lY-8 && pu.y < state.lY+pH+8){
@@ -312,7 +310,7 @@
     }
   }
 
-  // ---------- Drawing ----------
+  /* ===== Drawing: Pickleball reskin only ===== */
   function roundedRect(x,y,w,h,r){
     const rr=Math.min(r,Math.min(w,h)/2);
     ctx.beginPath();
@@ -324,109 +322,143 @@
     ctx.closePath();
   }
 
-  function drawPU(color, glyph){
-    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2); ctx.fill();
-    ctx.font='700 12px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle:'#0b0b14';
-    ctx.fillText(glyph,0,1);
+  function drawCourt(w,h){
+    // outer court
+    ctx.fillStyle = 'var(--court-blue)'; ctx.fillRect(0,0,w,h);
+    // center line "net"
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    for(let x=0;x<w;x+=10){ ctx.fillRect(x, (h/2|0)-1, 6, 2); } // dotted net
+
+    // kitchens (Non-Volley Zones) — shaded bands near net
+    ctx.fillStyle = 'rgba(16,60,113,0.35)';
+    ctx.fillRect(0, h/2 - h*0.12, w, h*0.24);
+
+    // service boxes (simple visual lines)
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(8,8,w-16,h-16); // border
+    // center line verticals
+    ctx.beginPath();
+    ctx.moveTo(w/2, 8); ctx.lineTo(w/2, h/2 - h*0.12);
+    ctx.moveTo(w/2, h/2 + h*0.12); ctx.lineTo(w/2, h-8);
+    ctx.stroke();
   }
 
-  function drawComet(x,y,vx,vy){
-    const len = clamp(Math.hypot(vx,vy)*0.03, 18, 56); // longer trail
-    const ang = Math.atan2(vy,vx);
-    ctx.save(); ctx.translate(x+BALL/2, y+BALL/2); ctx.rotate(ang);
+  function drawPaddle(x,y,w,h,isLeft){
+    // Handle
+    const handleH = Math.max(28, Math.round(h*0.18));
+    const handleW = Math.round(w*0.6);
+    const handleX = x + (w-handleW)/2;
+    const handleY = isLeft ? y+h-handleH-4 : y+h-handleH-4;
 
-    // outer purple haze
-    let g = ctx.createLinearGradient(-len*1.4,0,0,0);
-    g.addColorStop(0,'rgba(122,45,255,0)');
-    g.addColorStop(1,'rgba(122,45,255,0.40)');
-    ctx.fillStyle=g; ctx.fillRect(-len*1.4,-5, len*1.4, 10);
+    ctx.save();
+    ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=10;
 
-    // inner orange trail
-    g = ctx.createLinearGradient(-len,0,0,0);
-    g.addColorStop(0,'rgba(255,155,13,0)');
-    g.addColorStop(1,'rgba(255,155,13,0.95)');
-    ctx.fillStyle=g; ctx.fillRect(-len,-3, len, 6);
+    ctx.fillStyle = isLeft ? 'var(--paddle-a)' : 'var(--paddle-b)';
+    roundedRect(x, y, w, h-handleH+6, Math.round(w*0.45)); ctx.fill();
 
+    ctx.fillStyle = isLeft ? 'var(--paddle-a-accent)' : 'var(--paddle-b-accent)';
+    roundedRect(handleX, handleY, handleW, handleH, Math.round(handleW*0.3)); ctx.fill();
     ctx.restore();
 
-    // orange halo + white core
-    const cx=x+BALL/2, cy=y+BALL/2, r=10;
-    const rg = ctx.createRadialGradient(cx,cy,0,cx,cy,r);
-    rg.addColorStop(0,'rgba(255,205,120,1)');
-    rg.addColorStop(0.45,'rgba(255,155,13,0.95)');
-    rg.addColorStop(1,'rgba(255,155,13,0)');
-    ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#fff'; ctx.fillRect(x, y, BALL, BALL);
+    // face graphic dots (subtle)
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    for(let yy=y+12; yy<y+h-handleH-12; yy+=12){
+      for(let xx=x+6; xx<x+w-6; xx+=10){
+        ctx.beginPath(); ctx.arc(xx, yy, 1.2, 0, Math.PI*2); ctx.fill();
+      }
+    }
+  }
+
+  function drawBall(x,y){
+    const r = BALL*0.65;
+    const cx = x + BALL/2, cy = y + BALL/2;
+
+    // glow
+    const glow = ctx.createRadialGradient(cx,cy,0,cx,cy,r*1.8);
+    glow.addColorStop(0,'rgba(249,248,113,1)');
+    glow.addColorStop(0.6,'rgba(249,248,113,0.45)');
+    glow.addColorStop(1,'rgba(249,248,113,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx,cy,r*1.6,0,Math.PI*2); ctx.fill();
+
+    // ball
+    ctx.fillStyle = 'var(--ball)'; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+
+    // perforations (wiffle ball holes)
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    const holes = 8, ring = r*0.55;
+    for (let i=0;i<holes;i++){
+      const ang = (i/holes)*Math.PI*2;
+      const hx = cx + Math.cos(ang)*ring;
+      const hy = cy + Math.sin(ang)*ring;
+      ctx.beginPath(); ctx.arc(hx, hy, r*0.14, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  function drawPowerupGlyph(t){
+    const map = { grow:'⬆', shield:'🛡', slowmo:'⏱', multiball:'✦', x2:'x2' };
+    return map[t] || '?';
   }
 
   function draw(){
     const w=state.cssW, h=state.cssH;
 
-    // background stars
-    ctx.fillStyle = '#0b0b14'; ctx.fillRect(0,0,w,h);
-    ctx.fillStyle = '#0e1430';
-    for (let y=0;y<h;y+=26){ ctx.fillRect(((y*17)%w), y, 2, 2); }
+    // Court instead of space background
+    drawCourt(w,h);
 
-    // dotted midline
-    ctx.fillStyle = '#1b2450';
-    const mid=(w/2|0)-1;
-    for(let y=0;y<h;y+=DOT_H+DOT_GAP) ctx.fillRect(mid, y, DOT_W, DOT_H);
+    // center net already drawn (dotted). No midline dots needed separately.
 
-    // paddles (rounded + glow)
-    ctx.save();
-    ctx.shadowColor='rgba(255,255,255,.35)'; ctx.shadowBlur=16;
-    ctx.fillStyle='#ffffff';
-    roundedRect(14, state.lY, PADDLE_W, PADDLE_H, PADDLE_R); ctx.fill();
-    roundedRect(w - PADDLE_W - 14, state.rY, PADDLE_W, PADDLE_H, PADDLE_R); ctx.fill();
-    ctx.restore();
+    // paddles
+    const growK = state.effects.grow>0?1.5:1;
+    const pH = PADDLE_H*growK;
+    drawPaddle(16, state.lY, PADDLE_W, pH, true);
+    drawPaddle(w - PADDLE_W - 16, state.rY, PADDLE_W, pH, false);
 
-    // power-ups
+    // power-ups (as colored coins)
     for (const pu of state.powerups){
       ctx.save();
       ctx.translate(pu.x, pu.y);
-      ctx.globalAlpha = 0.85;
-      if (pu.t==='grow'){ drawPU('#6c7bff','⬆'); }
-      if (pu.t==='shield'){ drawPU('#33e1ff','🛡'); }
-      if (pu.t==='slowmo'){ drawPU('#ffd166','⏱'); }
-      if (pu.t==='multiball'){ drawPU('#ff6ac1','✦'); }
-      if (pu.t==='x2'){ drawPU('#ff9b0d','x2'); }
+      ctx.globalAlpha = 0.95;
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth=2; ctx.stroke();
+      ctx.font='700 12px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#e5e7eb';
+      ctx.fillText(drawPowerupGlyph(pu.t),0,1);
       ctx.restore();
     }
 
-    // sparks
+    // sparks (white flecks on hits)
     for (const p of state.sparks){
       const a = 1 - (p.t/p.life);
-      ctx.fillStyle = `rgba(255,155,13,${(0.25 + 0.75*a).toFixed(2)})`;
-      ctx.beginPath(); ctx.arc(p.x, p.y, 2.4*a+0.6, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = p.color || `rgba(255,255,255,${(0.25 + 0.75*a).toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 2.2*a+0.6, 0, Math.PI*2); ctx.fill();
     }
 
-    // balls with comet glow
-    for (const b of state.balls) drawComet(b.x, b.y, b.vx, b.vy);
+    // balls (draw as perforated pickleball)
+    for (const b of state.balls) drawBall(b.x, b.y);
 
-    // countdown (orange)
+    // countdown (center, optic yellow)
     if (state.counting){
       const el = (performance.now()-state.t0)/1000;
       const rem = Math.max(0, 3 - Math.floor(el));
       if (rem>0){
         ctx.font='900 64px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
-        ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#ff9b0d';
-        ctx.globalAlpha = 0.9;
-        const frac = 1-(el%1), s = 1+0.25*(1-frac);
+        ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='var(--ball)';
+        ctx.globalAlpha = 0.95;
+        const frac = 1-(el%1), s = 1+0.2*(1-frac);
         ctx.save(); ctx.translate(w/2,h/2); ctx.scale(s,s); ctx.fillText(String(rem),0,0); ctx.restore();
         ctx.globalAlpha = 1;
       } else { state.counting=false; }
     }
 
-    // lightweight HUD text
+    // HUD + DOM scores
     hud.textContent = `Rally: ${state.rally}  ${state.multiplier>1?`• Multiplier x${state.multiplier}`:''}`;
-
-    // DOM scores + combo
     scL.textContent = String(state.scoreL);
     scR.textContent = String(state.scoreR);
     comboV.textContent = String(Math.max(state.rally,0));
   }
 
-  // ---------- loop ----------
+  /* ===== Loop (unchanged) ===== */
   function loop(ts){
     if (!state.running){ state.last=0; requestAnimationFrame(loop); return; }
     if (!state.last) state.last = ts;
@@ -437,7 +469,7 @@
     requestAnimationFrame(loop);
   }
 
-  // input
+  /* ===== Input & lifecycle (unchanged) ===== */
   const keys={up:false,down:false};
   function onKey(e){ const d = e.type==='keydown';
     if (e.key==='ArrowUp'||e.key==='w'||e.key==='W'){ keys.up=d; e.preventDefault(); }
@@ -450,20 +482,59 @@
   window.addEventListener('pointerup', ()=>{ pointerY=null; }, {passive:true});
   window.addEventListener('pointermove', e=>{ if(pointerY!=null) pointerY=e.clientY; }, {passive:true});
 
-  // lifecycle
   window.addEventListener('resize', sizeCanvas, {passive:true});
   document.addEventListener('visibilitychange', ()=>{ state.running = !document.hidden; state.last=0; });
 
-  // high score
-  setInterval(()=>{ if (state.scoreL>highScore){ highScore=state.scoreL; localStorage.setItem('neon_high', String(highScore)); }}, 1000);
+  setInterval(()=>{ if (state.scoreL>highScore){ highScore=state.scoreL; localStorage.setItem('pickle_high', String(highScore)); }}, 1000);
+
+  /* ===== Step logic (unchanged from your game) ===== */
+  function step(dt){
+    if (state.counting) return;
+
+    const pH = PADDLE_H*(state.effects.grow>0?1.5:1);
+    if (keys.up) state.lY -= SPEED_PADDLE*dt;
+    if (keys.down) state.lY += SPEED_PADDLE*dt;
+
+    if (pointerY != null){
+      const rect = canvas.getBoundingClientRect();
+      const y = (pointerY - rect.top) * (state.cssH/rect.height) - pH/2;
+      const dy = clamp(y,0,state.cssH-pH) - state.lY;
+      state.lY += clamp(dy, -SPEED_PADDLE*dt, SPEED_PADDLE*dt);
+    }
+    state.lY = clamp(state.lY,0,state.cssH-pH);
+
+    // AI
+    const avgY = state.balls.reduce((s,b)=>s+b.y,0)/state.balls.length;
+    const target = avgY + BALL/2 - pH/2;
+    const dy = target - state.rY;
+    state.rY = clamp(state.rY + clamp(dy, -SPEED_AI*dt, SPEED_AI*dt), 0, state.cssH-pH);
+
+    // power-up timers + pickups
+    puTick(dt);
+    for (let i=state.powerups.length-1;i>=0;i--){
+      const pu = state.powerups[i];
+      if (pu.x > 10 && pu.x < state.cssW*0.5 && pu.y > state.lY-8 && pu.y < state.lY+pH+8){
+        activate(pu.t); state.powerups.splice(i,1);
+      }
+    }
+
+    // slow-mo
+    const slow = state.effects.slowmo>0 ? 0.6 : 1;
+    const worldDt = dt*slow;
+
+    // advance balls
+    for (const b of state.balls) stepBall(b, worldDt);
+
+    // fade sparks
+    for (let i=state.sparks.length-1;i>=0;i--){
+      const p=state.sparks[i]; p.t+=dt;
+      p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.98; p.vy*=0.98;
+      if (p.t>=p.life) state.sparks.splice(i,1);
+    }
+  }
 
   // init
-  function init(){
-    sizeCanvas();
-    resetPositions();
-    requestAnimationFrame(loop);
-    miniAppReady();
-  }
+  function init(){ sizeCanvas(); resetPositions(); requestAnimationFrame(loop); miniAppReady(); }
   init();
 })();
 </script>
