@@ -5,7 +5,7 @@
   <title>Pong Mini App — Pickleball Theme</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 
-  <!-- Farcaster Mini App Embed (uses your domain) -->
+  <!-- Farcaster Mini App Embed (your URL) -->
   <meta name="fc:miniapp" content='{
     "version":"1",
     "imageUrl":"https://pong-miniapp.vercel.app/og-1200x800.png",
@@ -36,47 +36,31 @@
   }'/>
 
   <style>
-    :root {
-      /* UI palette (CSS variables are fine for DOM, but we resolve them for canvas in JS) */
-      --court-blue: #1d4ed8;
-      --kitchen: #103c71;
-      --line: #ffffff;
-      --bg: #071b11;
-      --ball: #f9f871;
-      --paddle-a: #1f2937;
-      --paddle-a-accent: #34d399;
-      --paddle-b: #374151;
-      --paddle-b-accent: #60a5fa;
-      --hud: #e5e7eb;
+    :root{
+      --court-blue:#1d4ed8;
+      --kitchen:#103c71;
+      --line:#ffffff;
+      --bg:#071b11;
+      --ball:#f9f871;
+      --paddle-a:#1f2937;
+      --paddle-a-accent:#34d399;
+      --paddle-b:#374151;
+      --paddle-b-accent:#60a5fa;
+      --hud:#e5e7eb;
     }
-
-    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--line); }
-    .wrap { position: fixed; inset: env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0) 0;
-            display: grid; place-items: center; contain: strict; }
-    canvas { width: min(100vw, 100vh); height: min(100vw, 100vh); display: block; background: var(--bg); }
-
-    .scores{
-      position:fixed; inset:10px 0 auto 0; display:flex; justify-content:space-between;
-      padding:0 14%; pointer-events:none;
-      font:900 64px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-      text-shadow:0 0 8px rgba(255,255,255,.25);
-    }
-    .scores div { color: var(--line); }
-    .combo{ position:fixed; right:24px; bottom:20px; pointer-events:none; text-align:right;
-            font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
-    .combo .label{ font-weight:900; font-size:20px; color:#ffd166 }
-    .combo .value{ font-weight:900; font-size:54px; color:#ffd166 }
-    .hud { position: fixed; inset: 0 0 auto 0; text-align: center;
-           font: 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-           color: var(--hud); pointer-events:none; padding: 6px 0; }
-
-    .btnbar { position: fixed; inset: auto 0 env(safe-area-inset-bottom,0) 0;
-              display:flex; gap:8px; justify-content:center; padding:10px; }
-    .btn { background:#0e1a13; color:#cbd5e1; border:1px solid #1e3a2e;
-           border-radius:12px; padding:8px 12px; font: 600 14px/1 system-ui; }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--line)}
+    .wrap{position:fixed;inset:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0) 0;display:grid;place-items:center;contain:strict}
+    canvas{width:min(100vw,100vh);height:min(100vw,100vh);display:block;background:var(--bg)}
+    .scores{position:fixed;inset:10px 0 auto 0;display:flex;justify-content:space-between;padding:0 14%;pointer-events:none;font:900 64px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;text-shadow:0 0 8px rgba(255,255,255,.25)}
+    .scores div{color:var(--line)}
+    .combo{position:fixed;right:24px;bottom:20px;pointer-events:none;text-align:right;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    .combo .label{font-weight:900;font-size:20px;color:#ffd166}
+    .combo .value{font-weight:900;font-size:54px;color:#ffd166}
+    .hud{position:fixed;inset:0 0 auto 0;text-align:center;font:12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--hud);pointer-events:none;padding:6px 0}
+    .btnbar{position:fixed;inset:auto 0 env(safe-area-inset-bottom,0) 0;display:flex;gap:8px;justify-content:center;padding:10px}
+    .btn{background:#0e1a13;color:#cbd5e1;border:1px solid #1e3a2e;border-radius:12px;padding:8px 12px;font:600 14px/1 system-ui}
   </style>
 
-  <!-- Mini App SDK -->
   <script defer src="https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk/dist/index.umd.js"></script>
 </head>
 <body>
@@ -93,234 +77,212 @@
   </div>
 
 <script>
-(function () {
+(function(){
   'use strict';
 
-  /* ====== Resolve CSS variables for canvas (IMPORTANT FIX) ====== */
-  function cssVar(name, fallback) {
-    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    return v || fallback;
+  /* ---------- helpers ---------- */
+  function cssVar(name, fallback){ const v=getComputedStyle(document.documentElement).getPropertyValue(name).trim(); return v||fallback; }
+  function hexToRgba(hex, a){
+    // hex: #RRGGBB
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    if(!m) return `rgba(0,0,0,${a})`;
+    const r=parseInt(m[1],16), g=parseInt(m[2],16), b=parseInt(m[3],16);
+    return `rgba(${r},${g},${b},${a})`;
   }
   const theme = {
-    courtBlue: cssVar('--court-blue', '#1d4ed8'),
-    kitchen: cssVar('--kitchen', '#103c71'),
-    line: cssVar('--line', '#ffffff'),
-    bg: cssVar('--bg', '#071b11'),
-    ball: cssVar('--ball', '#f9f871'),
-    paddleA: cssVar('--paddle-a', '#1f2937'),
-    paddleAAcc: cssVar('--paddle-a-accent', '#34d399'),
-    paddleB: cssVar('--paddle-b', '#374151'),
-    paddleBAcc: cssVar('--paddle-b-accent', '#60a5fa'),
+    courtBlue: cssVar('--court-blue','#1d4ed8'),
+    kitchen: cssVar('--kitchen','#103c71'),
+    line: cssVar('--line','#ffffff'),
+    bg: cssVar('--bg','#071b11'),
+    ball: cssVar('--ball','#f9f871'),
+    paddleA: cssVar('--paddle-a','#1f2937'),
+    paddleAAcc: cssVar('--paddle-a-accent','#34d399'),
+    paddleB: cssVar('--paddle-b','#374151'),
+    paddleBAcc: cssVar('--paddle-b-accent','#60a5fa'),
   };
 
-  /* ====== Mini App SDK ====== */
-  let fc = null, signaledReady = false;
-  function signalReadyOnce() {
-    if (signaledReady) return;
-    signaledReady = true;
-    if (fc) { try { fc.actions.ready(); } catch(_){} }
+  /* ---------- Farcaster Mini App ---------- */
+  let fc=null, readySignaled=false;
+  function signalReadyOnce(){
+    if(readySignaled) return;
+    readySignaled=true;
+    if(fc){ try{ fc.actions.ready(); }catch(e){} }
   }
-  function miniAppSetup() {
-    if (window.FarcasterMiniApp && !fc) {
+  function miniAppSetup(){
+    if(window.FarcasterMiniApp && !fc){
       fc = new window.FarcasterMiniApp.MiniAppSDK();
-      // DO NOT call ready() yet — we’ll call after first frame is painted
+      // call ready() after we actually paint (see draw())
       fc.context().catch(()=>{});
     }
   }
   document.addEventListener('DOMContentLoaded', miniAppSetup);
 
-  /* Buttons */
   let highScore = Number(localStorage.getItem('pickle_high')||0);
-  document.getElementById('addBtn').onclick = async () => { try { if (fc) await fc.actions.addMiniApp(); } catch(e){} };
-  document.getElementById('shareBtn').onclick = async () => {
-    try { if (fc) await fc.actions.composeCast({ text: `I just hit ${highScore} in Pickle Pong! 🥒🏓` }); } catch(e){}
-  };
+  document.getElementById('addBtn').onclick = async ()=>{ try{ if(fc) await fc.actions.addMiniApp(); }catch(e){} };
+  document.getElementById('shareBtn').onclick = async ()=>{ try{ if(fc) await fc.actions.composeCast({ text:`I just hit ${highScore} in Pickle Pong! 🥒🏓` }); }catch(e){} };
 
-  /* ====== Game (logic unchanged) ====== */
-  const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d', { alpha:false, desynchronized:true });
-  const hud = document.getElementById('hud');
-  const scL = document.getElementById('scL');
-  const scR = document.getElementById('scR');
-  const comboV = document.getElementById('comboV');
+  /* ---------- game ---------- */
+  const canvas=document.getElementById('game');
+  const ctx=canvas.getContext('2d',{alpha:false,desynchronized:true});
+  const hud=document.getElementById('hud'), scL=document.getElementById('scL'), scR=document.getElementById('scR'), comboV=document.getElementById('comboV');
 
   const DPR_MIN=1, DPR_MAX=2, FIXED_DT=1/60, MAX_ACCUM=0.25;
-  const BALL=12;
-  const SPEED_BALL=230, SPEED_AI=310, SPEED_PADDLE=360;
+  const BALL=12, SPEED_BALL=230, SPEED_AI=310, SPEED_PADDLE=360;
 
   let PADDLE_W=20, PADDLE_H=200, PADDLE_R=10;
-  let DOT_W=2, DOT_H=8, DOT_GAP=8;
+  let DOT_H=8, DOT_GAP=8;
 
-  const state = {
-    dpr:1, cssW:0, cssH:0, last:0, accum:0, running:true,
+  const state={
+    dpr:1, cssW:0, cssH:0, last:0, accum:0,
     lY:0, rY:0,
     scoreL:0, scoreR:0, rally:0, multiplier:1,
     counting:true, t0:0,
-    powerups: [],
-    effects: { grow:0, shield:0, slowmo:0, multiball:0, x2:0 },
-    balls: [],
+    powerups:[],
+    effects:{grow:0,shield:0,slowmo:0,multiball:0,x2:0},
+    balls:[],
     sparks:[]
   };
 
-  function clamp(v,a,b){ return v<a?a : v>b?b : v; }
+  function clamp(v,a,b){ return v<a?a:v>b?b:v; }
 
   function sizeCanvas(){
-    const r = canvas.getBoundingClientRect();
-    const dpr = clamp(window.devicePixelRatio||1, DPR_MIN, DPR_MAX);
-    if (state.cssW===r.width && state.cssH===r.height && state.dpr===dpr) return;
-    state.cssW = r.width|0; state.cssH = r.height|0; state.dpr = dpr;
-    canvas.width = Math.max(1, Math.floor(state.cssW*dpr));
-    canvas.height= Math.max(1, Math.floor(state.cssH*dpr));
+    const r=canvas.getBoundingClientRect();
+    const dpr=clamp(window.devicePixelRatio||1, DPR_MIN, DPR_MAX);
+    if(state.cssW===r.width && state.cssH===r.height && state.dpr===dpr) return;
+    state.cssW=r.width|0; state.cssH=r.height|0; state.dpr=dpr;
+    canvas.width=Math.max(1,Math.floor(state.cssW*dpr));
+    canvas.height=Math.max(1,Math.floor(state.cssH*dpr));
     ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.imageSmoothingEnabled=false;
-
-    PADDLE_W = Math.max(18, Math.round(state.cssW*0.02));
-    PADDLE_H = Math.max(160, Math.round(state.cssH*0.5));
-    PADDLE_R = Math.round(PADDLE_W*0.45);
-    DOT_H    = Math.max(6, Math.round(state.cssH*0.012));
-    DOT_GAP  = DOT_H;
+    PADDLE_W=Math.max(18,Math.round(state.cssW*0.02));
+    PADDLE_H=Math.max(160,Math.round(state.cssH*0.5));
+    PADDLE_R=Math.round(PADDLE_W*0.45);
+    DOT_H=Math.max(6,Math.round(state.cssH*0.012));
+    DOT_GAP=DOT_H;
   }
 
+  function updateHUD(){ scL.textContent=String(state.scoreL); scR.textContent=String(state.scoreR); comboV.textContent=String(state.rally); }
+
   function resetPositions(){
-    state.lY = (state.cssH - PADDLE_H)/2;
-    state.rY = (state.cssH - PADDLE_H)/2;
+    state.lY=(state.cssH-PADDLE_H)/2;
+    state.rY=(state.cssH-PADDLE_H)/2;
     spawnBall(Math.random()<0.5?-1:1);
     state.counting=true; state.t0=performance.now();
     updateHUD();
   }
 
   function spawnBall(dir){
-    const angleY = clamp((Math.random()*2-1), -0.75, 0.75);
-    const speed = SPEED_BALL * (1 + state.rally*0.015);
-    const vx = dir*speed*Math.sqrt(1-angleY*angleY);
-    const vy = speed*angleY;
-    state.balls = [{ x:(state.cssW-BALL)/2, y:(state.cssH-BALL)/2, vx, vy }];
+    const ay=clamp(Math.random()*2-1,-0.75,0.75);
+    const s=SPEED_BALL*(1+state.rally*0.015);
+    const vx=dir*s*Math.sqrt(1-ay*ay), vy=s*ay;
+    state.balls=[{x:(state.cssW-BALL)/2,y:(state.cssH-BALL)/2,vx,vy}];
   }
 
   function addPowerup(){
-    const types = ['grow','shield','slowmo','multiball','x2'];
-    const t = types[(Math.random()*types.length)|0];
-    const x = clamp(Math.random()*state.cssW, state.cssW*0.25, state.cssW*0.75);
-    const y = clamp(Math.random()*state.cssH, 40, state.cssH-40);
-    state.powerups.push({t, x, y, ttl:8});
+    const types=['grow','shield','slowmo','multiball','x2'];
+    const t=types[(Math.random()*types.length)|0];
+    const x=clamp(Math.random()*state.cssW,state.cssW*0.25,state.cssW*0.75);
+    const y=clamp(Math.random()*state.cssH,40,state.cssH-40);
+    state.powerups.push({t,x,y,ttl:8});
   }
-  let nextPU = 2.5;
+  let nextPU=2.5;
   function puTick(dt){
-    nextPU -= dt;
-    if (nextPU <= 0 && !state.counting) { addPowerup(); nextPU = 4 + Math.random()*3; }
-    for (let i=state.powerups.length-1;i>=0;i--){
-      state.powerups[i].ttl -= dt;
-      if (state.powerups[i].ttl<=0) state.powerups.splice(i,1);
-    }
-    for (const k in state.effects) if (state.effects[k]>0) state.effects[k] -= dt;
+    nextPU-=dt;
+    if(nextPU<=0 && !state.counting){ addPowerup(); nextPU=4+Math.random()*3; }
+    for(let i=state.powerups.length-1;i>=0;i--){ const pu=state.powerups[i]; pu.ttl-=dt; if(pu.ttl<=0) state.powerups.splice(i,1); }
+    for(const k in state.effects){ if(state.effects[k]>0) state.effects[k]-=dt; }
   }
 
   function activate(t){
-    if (t==='grow')     state.effects.grow = 6;
-    if (t==='shield')   state.effects.shield = 999;
-    if (t==='slowmo')   state.effects.slowmo = 5;
-    if (t==='multiball'){
-      state.effects.multiball = 8;
-      if (state.balls.length<3){
-        const base = state.balls[0];
-        state.balls.push({x:base.x,y:base.y,vx:-base.vx*1.05,vy: base.vy*0.8});
-        state.balls.push({x:base.x,y:base.y,vx: base.vx*0.8, vy:-base.vy*1.05});
+    if(t==='grow') state.effects.grow=6;
+    if(t==='shield') state.effects.shield=999;
+    if(t==='slowmo') state.effects.slowmo=5;
+    if(t==='multiball'){ state.effects.multiball=8;
+      if(state.balls.length<3){
+        const b=state.balls[0];
+        state.balls.push({x:b.x,y:b.y,vx:-b.vx*1.05,vy:b.vy*0.8});
+        state.balls.push({x:b.x,y:b.y,vx:b.vx*0.8,vy:-b.vy*1.05});
       }
     }
-    if (t==='x2') { state.effects.x2 = 10; state.multiplier = 2; }
+    if(t==='x2'){ state.effects.x2=10; state.multiplier=2; }
   }
 
-  function addSparks(x,y,color='rgba(255,255,255,.8)'){
+  function addSparks(x,y){
     for(let i=0;i<18;i++){
       const a=Math.random()*Math.PI*2, sp=60+Math.random()*120;
-      state.sparks.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,t:0,life:0.28,color});
+      state.sparks.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,t:0,life:0.28});
     }
   }
 
-  function stepBall(b, dt){
-    b.x += b.vx*dt; b.y += b.vy*dt;
+  function stepBall(b,dt){
+    b.x+=b.vx*dt; b.y+=b.vy*dt;
+    if(b.y<=0){ b.y=0; b.vy=Math.abs(b.vy); }
+    else if(b.y+BALL>=state.cssH){ b.y=state.cssH-BALL; b.vy=-Math.abs(b.vy); }
 
-    if (b.y<=0){ b.y=0; b.vy=Math.abs(b.vy); }
-    else if (b.y+BALL>=state.cssH){ b.y=state.cssH-BALL; b.vy=-Math.abs(b.vy); }
+    const growK=state.effects.grow>0?1.5:1, pH=PADDLE_H*growK;
 
-    const growK = state.effects.grow>0?1.5:1;
-    const pH = PADDLE_H*growK;
-
-    // left paddle
-    if (b.x <= PADDLE_W+20){
-      if (b.y+BALL>=state.lY && b.y<=state.lY+pH){
+    if(b.x<=PADDLE_W+20){
+      if(b.y+BALL>=state.lY && b.y<=state.lY+pH){
         b.x=PADDLE_W+20; b.vx=Math.abs(b.vx)*1.04;
-        const rel = ((b.y+BALL/2)-(state.lY+pH/2))/(pH/2);
-        b.vy += rel*90; state.rally++; addSparks(b.x, b.y+BALL/2);
+        const rel=((b.y+BALL/2)-(state.lY+pH/2))/(pH/2);
+        b.vy+=rel*90; state.rally++; addSparks(b.x,b.y+BALL/2);
       }
     }
-    // right paddle
-    const rx = state.cssW-(PADDLE_W+20)-BALL;
-    if (b.x >= rx){
-      if (b.y+BALL>=state.rY && b.y<=state.rY+pH){
+    const rx=state.cssW-(PADDLE_W+20)-BALL;
+    if(b.x>=rx){
+      if(b.y+BALL>=state.rY && b.y<=state.rY+pH){
         b.x=rx; b.vx=-Math.abs(b.vx)*1.04;
-        const rel = ((b.y+BALL/2)-(state.rY+pH/2))/(pH/2);
-        b.vy += rel*90; state.rally++; addSparks(rx+BALL, b.y+BALL/2);
+        const rel=((b.y+BALL/2)-(state.rY+pH/2))/(pH/2);
+        b.vy+=rel*90; state.rally++; addSparks(rx+BALL,b.y+BALL/2);
       }
     }
 
-    // score
-    if (b.x+BALL < 0){
-      if (state.effects.shield>0){ state.effects.shield = 0; b.x = 0; b.vx = Math.abs(b.vx); }
-      else { state.scoreR++; state.rally=0; state.multiplier=1; state.balls=[b]; spawnBall(+1); state.counting=true; state.t0=performance.now(); }
-    } else if (b.x > state.cssW){
-      const add = (state.effects.x2>0?2:1);
-      state.scoreL += add; state.rally=0; state.multiplier=1; state.balls=[b];
-      spawnBall(-1); state.counting=true; state.t0=performance.now();
+    if(b.x+BALL<0){
+      if(state.effects.shield>0){ state.effects.shield=0; b.x=0; b.vx=Math.abs(b.vx); }
+      else { state.scoreR++; state.rally=0; state.multiplier=1; state.balls=[b]; spawnBall(+1); state.counting=true; state.t0=performance.now(); updateHUD(); }
+    } else if(b.x>state.cssW){
+      const add=(state.effects.x2>0?2:1);
+      state.scoreL+=add; state.rally=0; state.multiplier=1; state.balls=[b]; spawnBall(-1); state.counting=true; state.t0=performance.now(); updateHUD();
     }
   }
 
   function step(dt){
-    if (state.counting) return;
-
-    const pH = PADDLE_H*(state.effects.grow>0?1.5:1);
-    if (keys.up) state.lY -= SPEED_PADDLE*dt;
-    if (keys.down) state.lY += SPEED_PADDLE*dt;
-
-    if (pointerY != null){
-      const rect = canvas.getBoundingClientRect();
-      const y = (pointerY - rect.top) * (state.cssH/rect.height) - pH/2;
-      const dy = clamp(y,0,state.cssH-pH) - state.lY;
-      state.lY += clamp(dy, -SPEED_PADDLE*dt, SPEED_PADDLE*dt);
+    if(state.counting) return;
+    const pH=PADDLE_H*(state.effects.grow>0?1.5:1);
+    if(keys.up) state.lY-=SPEED_PADDLE*dt;
+    if(keys.down) state.lY+=SPEED_PADDLE*dt;
+    if(pointerY!=null){
+      const rect=canvas.getBoundingClientRect();
+      const y=(pointerY-rect.top)*(state.cssH/rect.height)-pH/2;
+      const dy=clamp(y,0,state.cssH-pH)-state.lY;
+      state.lY+=clamp(dy,-SPEED_PADDLE*dt,SPEED_PADDLE*dt);
     }
-    state.lY = clamp(state.lY,0,state.cssH-pH);
+    state.lY=clamp(state.lY,0,state.cssH-pH);
 
-    // AI
-    const avgY = state.balls.reduce((s,b)=>s+b.y,0)/state.balls.length;
-    const target = avgY + BALL/2 - pH/2;
-    const dy = target - state.rY;
-    state.rY = clamp(state.rY + clamp(dy, -SPEED_AI*dt, SPEED_AI*dt), 0, state.cssH-pH);
+    const avgY=state.balls.reduce((s,b)=>s+b.y,0)/state.balls.length;
+    const target=avgY+BALL/2-pH/2;
+    const dy=target-state.rY;
+    state.rY=clamp(state.rY+clamp(dy,-SPEED_AI*dt,SPEED_AI*dt),0,state.cssH-pH);
 
     puTick(dt);
-    // pickups
-    for (let i=state.powerups.length-1;i>=0;i--){
-      const pu = state.powerups[i];
-      if (pu.x > 10 && pu.x < state.cssW*0.5 && pu.y > state.lY-8 && pu.y < state.lY+pH+8){
-        activate(pu.t); state.powerups.splice(i,1);
-      }
+    for(let i=state.powerups.length-1;i>=0;i--){
+      const pu=state.powerups[i];
+      if(pu.x>10 && pu.x<state.cssW*0.5 && pu.y>state.lY-8 && pu.y<state.lY+pH+8){ activate(pu.t); state.powerups.splice(i,1); }
     }
 
-    const slow = state.effects.slowmo>0 ? 0.6 : 1;
-    const worldDt = dt*slow;
-    for (const b of state.balls) stepBall(b, worldDt);
+    const slow=state.effects.slowmo>0 ? 0.6 : 1;
+    const worldDt=dt*slow;
+    for(const b of state.balls) stepBall(b,worldDt);
 
-    // fade sparks
-    for (let i=state.sparks.length-1;i>=0;i--){
-      const p=state.sparks[i]; p.t+=dt;
-      p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.98; p.vy*=0.98;
-      if (p.t>=p.life) state.sparks.splice(i,1);
+    for(let i=state.sparks.length-1;i>=0;i--){
+      const p=state.sparks[i]; p.t+=dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.98; p.vy*=0.98;
+      if(p.t>=p.life) state.sparks.splice(i,1);
     }
   }
 
   function roundedRect(x,y,w,h,r){
     const rr=Math.min(r,Math.min(w,h)/2);
-    ctx.beginPath();
-    ctx.moveTo(x+rr,y);
+    ctx.beginPath(); ctx.moveTo(x+rr,y);
     ctx.arcTo(x+w,y,x+w,y+h,rr);
     ctx.arcTo(x+w,y+h,x,y+h,rr);
     ctx.arcTo(x,y+h,x,y,rr);
@@ -329,190 +291,127 @@
   }
 
   function drawCourt(w,h){
-    ctx.fillStyle = theme.courtBlue; ctx.fillRect(0,0,w,h);
+    ctx.fillStyle=theme.courtBlue; ctx.fillRect(0,0,w,h);
     // dotted net
-    ctx.fillStyle = theme.line;
-    for(let x=0;x<w;x+=10){ ctx.fillRect(x, (h/2|0)-1, 6, 2); }
-    // kitchen band
-    ctx.fillStyle = theme.kitchen + '66'; // add alpha
+    ctx.fillStyle=theme.line;
+    for(let x=0;x<w;x+=10){ ctx.fillRect(x,(h/2|0)-1,6,2); }
+    // kitchen band with alpha
+    ctx.fillStyle=hexToRgba(theme.kitchen,0.35);
     ctx.fillRect(0, h/2 - h*0.12, w, h*0.24);
-    // borders + center lines
-    ctx.strokeStyle = theme.line; ctx.lineWidth = 2;
-    ctx.strokeRect(8,8,w-16,h-16);
+    // border & service center lines
+    ctx.strokeStyle=theme.line; ctx.lineWidth=2; ctx.strokeRect(8,8,w-16,h-16);
     ctx.beginPath();
-    ctx.moveTo(w/2, 8); ctx.lineTo(w/2, h/2 - h*0.12);
+    ctx.moveTo(w/2,8); ctx.lineTo(w/2, h/2 - h*0.12);
     ctx.moveTo(w/2, h/2 + h*0.12); ctx.lineTo(w/2, h-8);
     ctx.stroke();
   }
 
   function drawPaddle(x,y,w,h,isLeft){
-    const handleH = Math.max(28, Math.round(h*0.18));
-    const handleW = Math.round(w*0.6);
-    const handleX = x + (w-handleW)/2;
-    const handleY = y + h - handleH - 4;
-
-    ctx.save();
-    ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=10;
-
-    ctx.fillStyle = isLeft ? theme.paddleA : theme.paddleB;
-    roundedRect(x, y, w, h-handleH+6, Math.round(w*0.45)); ctx.fill();
-
-    ctx.fillStyle = isLeft ? theme.paddleAAcc : theme.paddleBAcc;
-    roundedRect(handleX, handleY, handleW, handleH, Math.round(handleW*0.3)); ctx.fill();
+    const handleH=Math.max(28,Math.round(h*0.18));
+    const handleW=Math.round(w*0.6);
+    const handleX=x+(w-handleW)/2;
+    const handleY=y+h-handleH-4;
+    ctx.save(); ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=10;
+    ctx.fillStyle=isLeft?theme.paddleA:theme.paddleB;
+    roundedRect(x,y,w,h-handleH+6,Math.round(w*0.45)); ctx.fill();
+    ctx.fillStyle=isLeft?theme.paddleAAcc:theme.paddleBAcc;
+    roundedRect(handleX,handleY,handleW,handleH,Math.round(handleW*0.3)); ctx.fill();
     ctx.restore();
-
     // subtle face dots
-    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fillStyle='rgba(255,255,255,0.06)';
     for(let yy=y+12; yy<y+h-handleH-12; yy+=12){
-      for(let xx=x+6; xx<x+w-6; xx+=10){
-        ctx.beginPath(); ctx.arc(xx, yy, 1.2, 0, Math.PI*2); ctx.fill();
-      }
+      for(let xx=x+6; xx<x+w-6; xx+=10){ ctx.beginPath(); ctx.arc(xx,yy,1.2,0,Math.PI*2); ctx.fill(); }
     }
   }
 
   function drawBall(x,y){
-    const r = BALL*0.65;
-    const cx = x + BALL/2, cy = y + BALL/2;
-
-    const glow = ctx.createRadialGradient(cx,cy,0,cx,cy,r*1.8);
+    const r=BALL*0.65, cx=x+BALL/2, cy=y+BALL/2;
+    const glow=ctx.createRadialGradient(cx,cy,0,cx,cy,r*1.8);
     glow.addColorStop(0, theme.ball);
     glow.addColorStop(0.6,'rgba(249,248,113,0.45)');
     glow.addColorStop(1,'rgba(249,248,113,0)');
-    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx,cy,r*1.6,0,Math.PI*2); ctx.fill();
-
-    ctx.fillStyle = theme.ball; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
-
+    ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(cx,cy,r*1.6,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=theme.ball; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
     // holes
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    const holes = 8, ring = r*0.55;
-    for (let i=0;i<holes;i++){
-      const ang = (i/holes)*Math.PI*2;
-      const hx = cx + Math.cos(ang)*ring;
-      const hy = cy + Math.sin(ang)*ring;
-      ctx.beginPath(); ctx.arc(hx, hy, r*0.14, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(0,0,0,0.25)';
+    const holes=8, ring=r*0.55;
+    for(let i=0;i<holes;i++){
+      const ang=i/holes*Math.PI*2, hx=cx+Math.cos(ang)*ring, hy=cy+Math.sin(ang)*ring;
+      ctx.beginPath(); ctx.arc(hx,hy,r*0.14,0,Math.PI*2); ctx.fill();
     }
   }
 
   function draw(){
     const w=state.cssW, h=state.cssH;
-
     drawCourt(w,h);
 
-    const growK = state.effects.grow>0?1.5:1;
-    const pH = PADDLE_H*growK;
-    drawPaddle(16, state.lY, PADDLE_W, pH, true);
-    drawPaddle(w - PADDLE_W - 16, state.rY, PADDLE_W, pH, false);
+    const growK=state.effects.grow>0?1.5:1, pH=PADDLE_H*growK;
+    drawPaddle(16,state.lY,PADDLE_W,pH,true);
+    drawPaddle(w-PADDLE_W-16,state.rY,PADDLE_W,pH,false);
 
-    // power-ups
-    for (const pu of state.powerups){
-      ctx.save(); ctx.translate(pu.x, pu.y); ctx.globalAlpha = 0.95;
-      ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth=2; ctx.stroke();
+    // powerups
+    for(const pu of state.powerups){
+      ctx.save(); ctx.translate(pu.x,pu.y); ctx.globalAlpha=.95;
+      ctx.fillStyle='#0f172a'; ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=2; ctx.stroke();
       ctx.font='700 12px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#e5e7eb';
       ctx.fillText(({grow:'⬆',shield:'🛡',slowmo:'⏱',multiball:'✦',x2:'x2'})[pu.t]||'?',0,1);
       ctx.restore();
     }
 
-    for (const p of state.sparks){
-      const a = 1 - (p.t/p.life);
-      ctx.fillStyle = p.color || `rgba(255,255,255,${(0.25 + 0.75*a).toFixed(2)})`;
-      ctx.beginPath(); ctx.arc(p.x, p.y, 2.2*a+0.6, 0, Math.PI*2); ctx.fill();
+    for(const p of state.sparks){
+      const a=1-(p.t/p.life);
+      ctx.fillStyle=`rgba(255,255,255,${(0.25+0.75*a).toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(p.x,p.y,2.2*a+0.6,0,Math.PI*2); ctx.fill();
     }
 
-    for (const b of state.balls) drawBall(b.x, b.y);
+    for(const b of state.balls) drawBall(b.x,b.y);
 
-    if (state.counting){
-      const el = (performance.now()-state.t0)/1000;
-      const rem = Math.max(0, 3 - Math.floor(el));
-      if (rem>0){
+    if(state.counting){
+      const el=(performance.now()-state.t0)/1000, rem=Math.max(0,3-Math.floor(el));
+      if(rem>0){
         ctx.font='900 64px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
-        ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle=theme.ball;
-        ctx.globalAlpha = 0.95;
-        const frac = 1-(el%1), s = 1+0.2*(1-frac);
+        ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle=theme.ball; ctx.globalAlpha=.95;
+        const frac=1-(el%1), s=1+0.2*(1-frac);
         ctx.save(); ctx.translate(w/2,h/2); ctx.scale(s,s); ctx.fillText(String(rem),0,0); ctx.restore();
-        ctx.globalAlpha = 1;
-      } else { state.counting=false; }
+        ctx.globalAlpha=1;
+      } else state.counting=false;
     }
 
-    hud.textContent = `Rally: ${state.rally}  ${state.multiplier>1?`• Multiplier x${state.multiplier}`:''}`;
-    scL.textContent = String(state.scoreL);
-    scR.textContent = String(state.scoreR);
-    comboV.textContent = String(Math.max(state.rally,0));
+    hud.textContent=`Rally: ${state.rally}${state.multiplier>1?` • x${state.multiplier}`:''}`;
+    scL.textContent=String(state.scoreL); scR.textContent=String(state.scoreR); comboV.textContent=String(state.rally);
 
-    // Signal host that the content is painted and interactive
+    // tell Farcaster host we're ready AFTER the first paint
     signalReadyOnce();
   }
 
-  /* ====== Loop ====== */
   function loop(ts){
-    if (!state.last) state.last=ts;
-    let dt = (ts-state.last)/1000; state.last=ts;
-    state.accum = Math.min(MAX_ACCUM, state.accum+dt);
+    if(!state.last) state.last=ts;
+    let dt=(ts-state.last)/1000; state.last=ts;
+    state.accum=Math.min(MAX_ACCUM,state.accum+dt);
     while(state.accum>=FIXED_DT){ step(FIXED_DT); state.accum-=FIXED_DT; }
     draw();
     requestAnimationFrame(loop);
   }
 
-  /* ====== Input & lifecycle ====== */
-  const keys={up:false,down:false};
-  function onKey(e){ const d = e.type==='keydown';
-    if (e.key==='ArrowUp'||e.key==='w'||e.key==='W'){ keys.up=d; e.preventDefault(); }
-    if (e.key==='ArrowDown'||e.key==='s'||e.key==='S'){ keys.down=d; e.preventDefault(); }
+  // input & lifecycle
+  const keys={up:false,down:false}; let pointerY=null;
+  function onKey(e){ const d=e.type==='keydown';
+    if(e.key==='ArrowUp'||e.key==='w'||e.key==='W'){ keys.up=d; e.preventDefault(); }
+    if(e.key==='ArrowDown'||e.key==='s'||e.key==='S'){ keys.down=d; e.preventDefault(); }
   }
-  window.addEventListener('keydown', onKey, {passive:false});
-  window.addEventListener('keyup', onKey, {passive:false});
-  let pointerY=null;
-  canvas.addEventListener('pointerdown', e=>{ pointerY=e.clientY; }, {passive:true});
-  window.addEventListener('pointerup', ()=>{ pointerY=null; }, {passive:true});
-  window.addEventListener('pointermove', e=>{ if(pointerY!=null) pointerY=e.clientY; }, {passive:true});
+  window.addEventListener('keydown',onKey,{passive:false});
+  window.addEventListener('keyup',onKey,{passive:false});
+  canvas.addEventListener('pointerdown',e=>{ pointerY=e.clientY; },{passive:true});
+  window.addEventListener('pointermove',e=>{ if(pointerY!=null) pointerY=e.clientY; },{passive:true});
+  window.addEventListener('pointerup',()=>{ pointerY=null; },{passive:true});
 
-  // Do NOT stop the loop on visibility changes; only reset timing to avoid giant dt
-  window.addEventListener('resize', sizeCanvas, {passive:true});
-  document.addEventListener('visibilitychange', ()=>{ state.last=0; });
+  window.addEventListener('resize',sizeCanvas,{passive:true});
+  document.addEventListener('visibilitychange',()=>{ state.last=0; });
 
-  setInterval(()=>{ if (state.scoreL>highScore){ highScore=state.scoreL; localStorage.setItem('pickle_high', String(highScore)); }}, 1000);
+  setInterval(()=>{ if(state.scoreL>highScore){ highScore=state.scoreL; localStorage.setItem('pickle_high',String(highScore)); } },1000);
 
-  /* ====== Step ====== */
-  function step(dt){
-    if (state.counting) return;
-
-    const pH = PADDLE_H*(state.effects.grow>0?1.5:1);
-    if (keys.up) state.lY -= SPEED_PADDLE*dt;
-    if (keys.down) state.lY += SPEED_PADDLE*dt;
-
-    if (pointerY != null){
-      const rect = canvas.getBoundingClientRect();
-      const y = (pointerY - rect.top) * (state.cssH/rect.height) - pH/2;
-      const dy = clamp(y,0,state.cssH-pH) - state.lY;
-      state.lY += clamp(dy, -SPEED_PADDLE*dt, SPEED_PADDLE*dt);
-    }
-    state.lY = clamp(state.lY,0,state.cssH-pH);
-
-    const avgY = state.balls.reduce((s,b)=>s+b.y,0)/state.balls.length;
-    const target = avgY + BALL/2 - pH/2;
-    const dy = target - state.rY;
-    state.rY = clamp(state.rY + clamp(dy, -SPEED_AI*dt, SPEED_AI*dt), 0, state.cssH-pH);
-
-    puTick(dt);
-    for (let i=state.powerups.length-1;i>=0;i--){
-      const pu = state.powerups[i];
-      if (pu.x > 10 && pu.x < state.cssW*0.5 && pu.y > state.lY-8 && pu.y < state.lY+pH+8){
-        activate(pu.t); state.powerups.splice(i,1);
-      }
-    }
-
-    const slow = state.effects.slowmo>0 ? 0.6 : 1;
-    const worldDt = dt*slow;
-    for (const b of state.balls) stepBall(b, worldDt);
-
-    for (let i=state.sparks.length-1;i>=0;i--){
-      const p=state.sparks[i]; p.t+=dt;
-      p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.98; p.vy*=0.98;
-      if (p.t>=p.life) state.sparks.splice(i,1);
-    }
-  }
-
-  /* ====== Init ====== */
+  // boot
   function init(){ sizeCanvas(); resetPositions(); requestAnimationFrame(loop); miniAppSetup(); }
   init();
 })();
