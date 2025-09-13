@@ -2,105 +2,178 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Pickle Pong — Farcaster Mini App</title>
+  <title>RETROPONG — Farcaster Mini App</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 
   <!-- Farcaster Mini App Embed -->
   <meta name="fc:miniapp" content='{
     "version":"1",
-    "imageUrl":"https://pong-miniapp.vercel.app/og-1200x800.png",
+    "imageUrl":"https://your-domain.com/og-1200x800.png",
     "button":{
-      "title":"Play Pickle Pong",
+      "title":"Play RetroPong",
       "action":{
         "type":"launch_frame",
-        "name":"Pickle Pong",
-        "url":"https://pong-miniapp.vercel.app/",
-        "splashImageUrl":"https://pong-miniapp.vercel.app/icon-200.png",
-        "splashBackgroundColor":"#0a2b19"
+        "name":"RETROPONG",
+        "url":"https://your-domain.com/",
+        "splashImageUrl":"https://your-domain.com/icon-200.png",
+        "splashBackgroundColor":"#0a0f0a"
       }
     }
   }'/>
+  <!-- Back-compat -->
   <meta name="fc:frame" content='{
     "version":"1",
-    "imageUrl":"https://pong-miniapp.vercel.app/og-1200x800.png",
+    "imageUrl":"https://your-domain.com/og-1200x800.png",
     "button":{
-      "title":"Play Pickle Pong",
+      "title":"Play RetroPong",
       "action":{
         "type":"launch_frame",
-        "name":"Pickle Pong",
-        "url":"https://pong-miniapp.vercel.app/",
-        "splashImageUrl":"https://pong-miniapp.vercel.app/icon-200.png",
-        "splashBackgroundColor":"#0a2b19"
+        "name":"RETROPONG",
+        "url":"https://your-domain.com/",
+        "splashImageUrl":"https://your-domain.com/icon-200.png",
+        "splashBackgroundColor":"#0a0f0a"
       }
     }
   }'/>
 
   <style>
     :root{
-      --court-a:#135b2e;   /* gradient top */
-      --court-b:#0b3c22;   /* gradient bottom */
-      --net:#e5e7eb;
-      --lines:#ffffff;
-      --kitchen:#0f4c81;
-      --ball:#f9f871;
-      --paddleL:#1f2937; --paddleL-ac:#34d399;
-      --paddleR:#374151; --paddleR-ac:#60a5fa;
-      --hud:#e5e7eb;
-      --plate:#0b1a12cc;
-      --plate-border:#1f3a2f;
-      --btn:#10271b; --btn-border:#214a36; --btn-text:#e6f0ea;
+      --bg:#0b0f10;         /* tube black */
+      --crt:#0e1416;        /* panel */
+      --grid:#101719;
+      --bright:#dfffc7;     /* bright green */
+      --dim:#7aff9b;        /* dim green */
+      --accent:#ffdd7a;     /* amber highlights */
+      --line:#c8ffb4;
+      --scan:rgba(255,255,255,0.04);
+      --glass:rgba(255,255,255,0.06);
     }
-    html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--court-a),var(--court-b));color:var(--lines)}
-    .wrap{position:fixed;inset:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0) 0;display:grid;place-items:center;contain:strict}
-    canvas{width:min(100vw,100vh);height:min(100vw,100vh);display:block;background:transparent}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--bright)}
+    body{font:600 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}
 
-    /* scoreplates */
-    .plates{position:fixed;inset:10px 0 auto 0;display:flex;justify-content:space-between;gap:8px;padding:0 12%;pointer-events:none}
-    .plate{background:var(--plate);border:1px solid var(--plate-border);backdrop-filter:blur(6px);padding:6px 14px;border-radius:14px;font:900 56px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;box-shadow:0 6px 22px rgba(0,0,0,.25)}
-    .hud{position:fixed;left:0;right:0;top:72px;text-align:center;font:600 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--hud);pointer-events:none}
+    /* layout */
+    .wrap{position:fixed;inset:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0) 0;display:grid;place-items:center}
+    .shell{
+      position:relative;
+      width:min(100vw, 100vh); height:min(100vw,100vh);
+      background:linear-gradient(180deg,var(--crt),#0a0e0f);
+      border:2px solid #0f1a1b; border-radius:18px;
+      box-shadow:
+        inset 0 0 0 1px #172427,
+        0 18px 60px rgba(0,0,0,.6),
+        0 8px 24px rgba(0,0,0,.45);
+      overflow:hidden;
+    }
+    canvas{position:absolute; inset:0; width:100%; height:100%; display:block; background:transparent}
 
-    /* postgame overlay (only visible when game over / paused) */
-    .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.55));backdrop-filter:blur(6px)}
+    /* scanlines + vignette */
+    .scan{
+      pointer-events:none; position:absolute; inset:0;
+      background:
+        repeating-linear-gradient(0deg, transparent 0 2px, var(--scan) 2px 3px);
+      mix-blend-mode:soft-light;
+      opacity:.8;
+    }
+    .vignette{
+      pointer-events:none; position:absolute; inset:-10%;
+      background:radial-gradient(ellipse at center, rgba(0,0,0,0) 60%, rgba(0,0,0,.35) 85%, rgba(0,0,0,.6) 100%);
+    }
+
+    /* score plates */
+    .scores{position:absolute; left:0; right:0; top:12px; display:flex; justify-content:space-between; padding:0 10%}
+    .plate{
+      background:linear-gradient(180deg,rgba(208,255,184,.12),rgba(0,0,0,.1));
+      border:1px solid rgba(140,255,160,.25); border-radius:12px;
+      padding:6px 12px; color:var(--bright);
+      font:900 clamp(28px, 8vw, 56px)/1.0 ui-monospace, monospace;
+      text-shadow:0 0 8px rgba(160,255,195,.25);
+      backdrop-filter:blur(6px);
+      min-width:64px; text-align:center;
+    }
+
+    /* bottom HUD */
+    .hud{
+      position:absolute; left:0; right:0; bottom:10px; text-align:center;
+      color:var(--dim); letter-spacing:.06em; text-transform:uppercase;
+      font:700 clamp(10px,2.5vw,12px)/1 ui-monospace, monospace;
+      opacity:.9;
+    }
+
+    /* overlay menu */
+    .overlay{position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+      background:linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.6));
+      backdrop-filter:blur(4px);
+    }
     .overlay.show{display:flex}
-    .card{width:min(92vw,460px);background:#0d1b14;border:1px solid #1f3a2f;border-radius:16px;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.45);color:#e6f0ea;font:600 14px/1.3 system-ui}
-    .card h1{margin:0 0 8px 0;font:900 26px/1.1 system-ui}
-    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-    .btn{appearance:none;border:1px solid var(--btn-border);background:var(--btn);color:var(--btn-text);border-radius:12px;padding:10px 14px;font:700 14px/1 system-ui;cursor:pointer}
+    .card{
+      width:min(92%,520px); color:var(--bright);
+      background:linear-gradient(180deg, rgba(100,255,150,.06), rgba(0,0,0,.1));
+      border:1px solid rgba(120,255,180,.22); border-radius:14px;
+      box-shadow:0 16px 60px rgba(0,0,0,.5), inset 0 1px 0 var(--glass);
+      padding:18px;
+    }
+    .title{margin:0 0 6px 0; font:900 22px/1.1 ui-monospace, monospace; letter-spacing:.04em}
+    .subtitle{margin:0 0 12px 0; color:var(--dim); font-weight:700}
+    .row{display:flex; flex-wrap:wrap; gap:10px}
+    .btn{
+      appearance:none; cursor:pointer;
+      background:linear-gradient(180deg, #0f2016, #0a1610);
+      border:1px solid #1e3a2c; color:var(--bright);
+      border-radius:10px; padding:10px 12px; font:800 13px/1 ui-monospace, monospace; letter-spacing:.04em;
+      box-shadow:inset 0 1px 0 var(--glass), 0 6px 18px rgba(0,0,0,.35);
+    }
     .btn:active{transform:translateY(1px)}
+    .amber{border-color:#3f3312; color:#ffd98a; background:linear-gradient(180deg,#31270f,#1c1608)}
     .ghost{background:transparent}
-    .fine{opacity:.85}
+    .note{opacity:.85; color:#c1ffd9; font-weight:700; margin-top:10px}
 
-    /* pause chip */
-    .pause{position:fixed;left:12px;bottom:14px;display:inline-flex;align-items:center;gap:8px;background:var(--plate);border:1px solid var(--plate-border);border-radius:999px;padding:8px 12px;font:700 12px/1 system-ui;color:#d8e7dc}
+    /* tiny bezel ticks */
+    .ticks{
+      position:absolute; inset:0; pointer-events:none; opacity:.25;
+      background:
+        linear-gradient(90deg, transparent 0 calc(50% - 1px), rgba(255,255,255,.35) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
+        linear-gradient(0deg, transparent 0 calc(50% - 1px), rgba(255,255,255,.35) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px));
+      mix-blend-mode:overlay;
+    }
   </style>
 
-  <!-- Farcaster SDK -->
+  <!-- Farcaster Mini App SDK -->
   <script defer src="https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk/dist/index.umd.js"></script>
 </head>
 <body>
   <div class="wrap">
-    <canvas id="game" aria-label="Pickle Pong"></canvas>
-  </div>
+    <div class="shell" id="shell">
+      <canvas id="game" aria-label="RETROPONG"></canvas>
+      <div class="ticks"></div>
+      <div class="scan"></div>
+      <div class="vignette"></div>
 
-  <!-- Scores & HUD -->
-  <div class="plates"><div id="scoreL" class="plate">0</div><div id="scoreR" class="plate">0</div></div>
-  <div id="hud" class="hud"></div>
-
-  <!-- Pause chip -->
-  <button id="pauseBtn" class="pause" aria-label="Pause/Resume">⏯ Pause</button>
-
-  <!-- Post-game / menu overlay -->
-  <div id="overlay" class="overlay" aria-hidden="true">
-    <div class="card">
-      <h1 id="ovTitle">Game Over</h1>
-      <div class="fine" id="ovSubtitle">Final score • <span id="ovL">0</span>–<span id="ovR">0</span></div>
-      <div class="row">
-        <button id="restartBtn" class="btn">▶ Play Again</button>
-        <button id="addBtn" class="btn">➕ Add to Farcaster</button>
-        <button id="shareBtn" class="btn">📣 Share High Score</button>
-        <button id="closeBtn" class="btn ghost">✕ Close</button>
+      <!-- UI layers -->
+      <div class="scores">
+        <div id="scL" class="plate">0</div>
+        <div id="scR" class="plate">0</div>
       </div>
-      <div class="fine" style="margin-top:10px">Tip: first to 11 wins. Use arrow keys or drag to move.</div>
+      <div id="hud" class="hud"></div>
+
+      <!-- Overlay menu (shown on load, pause, or game over) -->
+      <div id="overlay" class="overlay" aria-hidden="true">
+        <div class="card">
+          <h1 class="title" id="ovTitle">RETROPONG</h1>
+          <div class="subtitle" id="ovSub">First to 11 • Arrow keys / drag to move</div>
+          <div class="row" style="margin-bottom:10px">
+            <button id="playBtn"  class="btn">▶ Start</button>
+            <button id="againBtn" class="btn" style="display:none">▶ Play Again</button>
+            <button id="pauseBtn" class="btn ghost">⏯ Pause/Resume</button>
+          </div>
+          <div class="row">
+            <button id="addBtn"   class="btn">➕ Add to Farcaster</button>
+            <button id="shareBtn" class="btn amber">📣 Share High Score</button>
+            <button id="closeBtn" class="btn ghost">✕ Close</button>
+          </div>
+          <div class="note">Pro tip: rallies speed up the ball. Good luck, pilot.</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -108,347 +181,267 @@
 (function(){
   'use strict';
 
-  /* -------- Farcaster SDK (robust) -------- */
+  /* ===== Farcaster SDK (robust + late ready) ===== */
   let fc=null, readySent=false;
   function setupSDK(){
     if(window.FarcasterMiniApp && !fc){
       fc = new window.FarcasterMiniApp.MiniAppSDK();
-      // Wait to send ready until after first paint (we call in draw()).
+      // We'll call fc.actions.ready() after first paint in draw()
       fc.context().catch(()=>{});
     }
   }
   document.addEventListener('DOMContentLoaded', setupSDK);
-  function signalReady(){
+  function signalReadyOnce(){
     if(readySent) return;
-    readySent=true;
+    readySent = true;
     if(fc){ try{ fc.actions.ready(); }catch(e){} }
   }
 
-  /* -------- DOM refs -------- */
+  /* ===== DOM ===== */
   const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d', {alpha:false, desynchronized:true});
+  const shell  = document.getElementById('shell');
+  const ctx = canvas.getContext('2d',{alpha:false, desynchronized:true});
   const hud = document.getElementById('hud');
-  const scoreL = document.getElementById('scoreL');
-  const scoreR = document.getElementById('scoreR');
+  const scL = document.getElementById('scL');
+  const scR = document.getElementById('scR');
+
   const overlay = document.getElementById('overlay');
   const ovTitle = document.getElementById('ovTitle');
-  const ovSubtitle = document.getElementById('ovSubtitle');
-  const ovL = document.getElementById('ovL');
-  const ovR = document.getElementById('ovR');
-  const restartBtn = document.getElementById('restartBtn');
-  const addBtn = document.getElementById('addBtn');
-  const shareBtn = document.getElementById('shareBtn');
-  const closeBtn = document.getElementById('closeBtn');
-  const pauseBtn = document.getElementById('pauseBtn');
+  const ovSub   = document.getElementById('ovSub');
+  const playBtn = document.getElementById('playBtn');
+  const againBtn= document.getElementById('againBtn');
+  const pauseBtn= document.getElementById('pauseBtn');
+  const addBtn  = document.getElementById('addBtn');
+  const shareBtn= document.getElementById('shareBtn');
+  const closeBtn= document.getElementById('closeBtn');
 
-  /* -------- Config tuned for smaller paddles & faster feel -------- */
+  /* ===== Config (retro feel) ===== */
   const WIN_SCORE = 11;
   const DPR_MIN=1, DPR_MAX=2, FIXED_DT=1/60, MAX_ACCUM=0.25;
-  const BALL=12;
-  const SPEED_BALL=250, SPEED_AI=330, SPEED_PADDLE=380;
 
-  // Smaller paddles: ~1.3% width; ~38% height (feels nimble)
-  let P_W=0, P_H=0, P_R=0, DOT_H=0, DOT_G=0;
+  // sizes & speeds (tuned)
+  const BALL=10;
+  const SPEED_BALL=245, SPEED_AI=320, SPEED_PADDLE=380;
 
-  const state={
+  // dotted midline
+  let DOT_H=10, DOT_G=10;
+
+  // paddles scale with canvas, but kept slim for skill
+  let P_W=16, P_H=0, P_R=6;
+
+  const state = {
     dpr:1, cssW:0, cssH:0, last:0, accum:0,
     lY:0, rY:0,
     scoreL:0, scoreR:0, rally:0,
-    counting:true, t0:0,
-    paused:false, gameover:false,
-    effects:{grow:0,shield:0,slowmo:0,multiball:0,x2:0},
-    powerups:[],
+    counting:false, t0:0,
+    paused:true, gameover:false,
     balls:[],
-    sparks:[]
   };
 
-  /* -------- Utils -------- */
-  function clamp(v,a,b){ return v<a?a : v>b?b : v; }
+  function clamp(v,a,b){ return v<a?a:v>b?b:v; }
+
   function sizeCanvas(){
-    const r=canvas.getBoundingClientRect();
-    const dpr=clamp(window.devicePixelRatio||1, DPR_MIN, DPR_MAX);
-    if(state.cssW===r.width && state.cssH===r.height && state.dpr===dpr) return;
-    state.cssW=r.width|0; state.cssH=r.height|0; state.dpr=dpr;
-    canvas.width=Math.max(1,Math.floor(state.cssW*dpr));
-    canvas.height=Math.max(1,Math.floor(state.cssH*dpr));
+    const r = canvas.getBoundingClientRect();
+    const dpr = clamp(window.devicePixelRatio||1, DPR_MIN, DPR_MAX);
+    if (state.cssW===r.width && state.cssH===r.height && state.dpr===dpr) return;
+    state.cssW = r.width|0; state.cssH = r.height|0; state.dpr = dpr;
+    canvas.width  = Math.max(1, Math.floor(state.cssW*dpr));
+    canvas.height = Math.max(1, Math.floor(state.cssH*dpr));
     ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.imageSmoothingEnabled=false;
 
-    P_W = Math.max(10, Math.round(state.cssW*0.013));  // thinner
-    P_H = Math.max(120, Math.round(state.cssH*0.38));  // shorter
+    // scale UI with size
+    P_W = Math.max(12, Math.round(state.cssW*0.018));
+    P_H = Math.max(120, Math.round(state.cssH*0.45));
     P_R = Math.round(P_W*0.45);
-    DOT_H = Math.max(6, Math.round(state.cssH*0.012));
+
+    DOT_H = Math.max(8, Math.round(state.cssH*0.014));
     DOT_G = DOT_H;
   }
 
+  function roundedRect(x,y,w,h,r){
+    const rr=Math.min(r,Math.min(w,h)/2);
+    ctx.beginPath();
+    ctx.moveTo(x+rr, y);
+    ctx.arcTo(x+w,y, x+w,y+h, rr);
+    ctx.arcTo(x+w,y+h, x,y+h, rr);
+    ctx.arcTo(x,y+h, x,y, rr);
+    ctx.arcTo(x,y, x+w,y, rr);
+    ctx.closePath();
+  }
+
+  function resetPositions(){
+    state.lY = (state.cssH - P_H)/2;
+    state.rY = (state.cssH - P_H)/2;
+    spawnBall(Math.random()<0.5?-1:1);
+  }
+
   function spawnBall(dir){
-    const ay=clamp(Math.random()*2-1,-0.75,0.75);
-    const s=SPEED_BALL*(1+state.rally*0.012);
-    const vx=dir*s*Math.sqrt(1-ay*ay), vy=s*ay;
-    state.balls=[{x:(state.cssW-BALL)/2,y:(state.cssH-BALL)/2,vx,vy}];
+    const ay = clamp(Math.random()*2-1, -0.72, 0.72);
+    const s = SPEED_BALL * (1 + Math.min(0.012*state.rally, 0.6));
+    const vx = dir * s * Math.sqrt(1-ay*ay);
+    const vy = s * ay;
+    state.balls = [{x:(state.cssW-BALL)/2, y:(state.cssH-BALL)/2, vx, vy}];
   }
 
-  function resetRound(dir){
-    state.rally=0;
-    state.counting=true; state.t0=performance.now();
-    spawnBall(dir);
-  }
-  function hardReset(){
-    state.scoreL=0; state.scoreR=0; state.rally=0;
-    state.gameover=false; state.paused=false;
-    hideOverlay();
-    state.lY=(state.cssH-P_H)/2;
-    state.rY=(state.cssH-P_H)/2;
-    resetRound(Math.random()<0.5?-1:1);
-    updateHUD();
-  }
-  function updateHUD(){
-    scoreL.textContent = state.scoreL;
-    scoreR.textContent = state.scoreR;
-    hud.textContent = state.paused ? 'Paused' : `Rally: ${state.rally}`;
-  }
-
-  /* -------- Power-ups (unchanged behavior, but spawn a tad slower) -------- */
-  function addPowerup(){
-    const kinds=['grow','shield','slowmo','multiball','x2'];
-    const t=kinds[(Math.random()*kinds.length)|0];
-    const x=clamp(Math.random()*state.cssW, state.cssW*0.25, state.cssW*0.75);
-    const y=clamp(Math.random()*state.cssH, 40, state.cssH-40);
-    state.powerups.push({t,x,y,ttl:8});
-  }
-  let nextPU=3.0;
-  function puTick(dt){
-    nextPU-=dt;
-    if(nextPU<=0 && !state.counting && !state.paused && !state.gameover){
-      addPowerup(); nextPU=4.5+Math.random()*3.5;
-    }
-    for(let i=state.powerups.length-1;i>=0;i--){
-      const pu=state.powerups[i]; pu.ttl-=dt; if(pu.ttl<=0) state.powerups.splice(i,1);
-    }
-    for(const k in state.effects){ if(state.effects[k]>0) state.effects[k]-=dt; }
-  }
-  function activate(t){
-    if(t==='grow') state.effects.grow=6;
-    if(t==='shield') state.effects.shield=999;
-    if(t==='slowmo') state.effects.slowmo=5;
-    if(t==='multiball'){ state.effects.multiball=8;
-      if(state.balls.length<3){
-        const b=state.balls[0];
-        state.balls.push({x:b.x,y:b.y,vx:-b.vx*1.05,vy:b.vy*0.8});
-        state.balls.push({x:b.x,y:b.y,vx:b.vx*0.8,vy:-b.vy*1.05});
-      }
-    }
-    if(t==='x2'){ state.effects.x2=10; }
-  }
-
-  /* -------- Simulation -------- */
+  /* ===== Sim ===== */
   const keys={up:false,down:false}; let pointerY=null;
-  function stepBall(b,dt){
-    b.x+=b.vx*dt; b.y+=b.vy*dt;
-    if(b.y<=0){ b.y=0; b.vy=Math.abs(b.vy); }
-    else if(b.y+BALL>=state.cssH){ b.y=state.cssH-BALL; b.vy=-Math.abs(b.vy); }
 
-    const growK=state.effects.grow>0?1.5:1, pH=P_H*growK;
+  function stepBall(b, dt){
+    b.x += b.vx*dt; b.y += b.vy*dt;
 
-    // left collide
-    if(b.x<=P_W+16){
-      if(b.y+BALL>=state.lY && b.y<=state.lY+pH){
-        b.x=P_W+16; b.vx=Math.abs(b.vx)*1.045;
-        const rel=((b.y+BALL/2)-(state.lY+pH/2))/(pH/2);
-        b.vy+=rel*92; state.rally++;
+    // walls
+    if (b.y <= 0){ b.y = 0; b.vy = Math.abs(b.vy); }
+    else if (b.y+BALL >= state.cssH){ b.y = state.cssH-BALL; b.vy = -Math.abs(b.vy); }
+
+    // paddles
+    if (b.x <= P_W+12){
+      if (b.y+BALL>=state.lY && b.y<=state.lY+P_H){
+        b.x = P_W+12;
+        b.vx = Math.abs(b.vx)*1.045;
+        const rel=((b.y+BALL/2)-(state.lY+P_H/2))/(P_H/2);
+        b.vy += rel*95; state.rally++;
       }
     }
-    // right collide
-    const rx=state.cssW-(P_W+16)-BALL;
-    if(b.x>=rx){
-      if(b.y+BALL>=state.rY && b.y<=state.rY+pH){
-        b.x=rx; b.vx=-Math.abs(b.vx)*1.045;
-        const rel=((b.y+BALL/2)-(state.rY+pH/2))/(pH/2);
-        b.vy+=rel*92; state.rally++;
+    const rx = state.cssW - (P_W+12) - BALL;
+    if (b.x >= rx){
+      if (b.y+BALL>=state.rY && b.y<=state.rY+P_H){
+        b.x = rx;
+        b.vx = -Math.abs(b.vx)*1.045;
+        const rel=((b.y+BALL/2)-(state.rY+P_H/2))/(P_H/2);
+        b.vy += rel*95; state.rally++;
       }
     }
 
-    // score
-    if(b.x+BALL<0){
-      if(state.effects.shield>0){ state.effects.shield=0; b.x=0; b.vx=Math.abs(b.vx); }
-      else { state.scoreR++; resetRound(+1); checkWin(); }
-    } else if(b.x>state.cssW){
-      const add=(state.effects.x2>0?2:1);
-      state.scoreL+=add; resetRound(-1); checkWin();
+    // scoring
+    if (b.x+BALL < 0){
+      state.scoreR++; state.rally=0; spawnBall(+1); state.counting=true; state.t0=performance.now();
+      checkWin();
+    } else if (b.x > state.cssW){
+      state.scoreL++; state.rally=0; spawnBall(-1); state.counting=true; state.t0=performance.now();
+      checkWin();
     }
   }
 
   function step(dt){
-    if(state.paused || state.gameover) return;
-    if(state.counting) return;
+    if (state.gameover || state.paused) return;
+    if (state.counting) return;
 
-    const pH=P_H*(state.effects.grow>0?1.5:1);
-    if(keys.up) state.lY-=SPEED_PADDLE*dt;
-    if(keys.down) state.lY+=SPEED_PADDLE*dt;
-    if(pointerY!=null){
-      const rect=canvas.getBoundingClientRect();
-      const y=(pointerY-rect.top)*(state.cssH/rect.height)-pH/2;
-      const dy=clamp(y,0,state.cssH-pH)-state.lY;
-      state.lY+=clamp(dy,-SPEED_PADDLE*dt,SPEED_PADDLE*dt);
+    // player input
+    if (keys.up)   state.lY -= SPEED_PADDLE*dt;
+    if (keys.down) state.lY += SPEED_PADDLE*dt;
+
+    if (pointerY != null){
+      const rect = canvas.getBoundingClientRect();
+      const y = (pointerY - rect.top) * (state.cssH/rect.height) - P_H/2;
+      const dy = clamp(y,0,state.cssH-P_H) - state.lY;
+      state.lY += clamp(dy, -SPEED_PADDLE*dt, SPEED_PADDLE*dt);
     }
-    state.lY=clamp(state.lY,0,state.cssH-pH);
+    state.lY = clamp(state.lY, 0, state.cssH-P_H);
 
-    // AI: slightly imperfect tracking (fun)
-    const avgY = state.balls.reduce((s,b)=>s+b.y,0)/state.balls.length;
-    const target = avgY + BALL/2 - pH/2 + Math.sin(performance.now()/270)*8;
+    // AI
+    const b = state.balls[0];
+    const target = b.y + BALL/2 - P_H/2 + Math.sin(performance.now()/250)*6;
     const dy = target - state.rY;
-    state.rY = clamp(state.rY + clamp(dy, -SPEED_AI*dt, SPEED_AI*dt), 0, state.cssH-pH);
+    state.rY = clamp(state.rY + clamp(dy, -SPEED_AI*dt, SPEED_AI*dt), 0, state.cssH-P_H);
 
-    puTick(dt);
-
-    // pickups (player side)
-    for(let i=state.powerups.length-1;i>=0;i--){
-      const pu=state.powerups[i];
-      if(pu.x>10 && pu.x<state.cssW*0.5 && pu.y>state.lY-8 && pu.y<state.lY+pH+8){
-        activate(pu.t); state.powerups.splice(i,1);
-      }
-    }
-
-    const slow = state.effects.slowmo>0 ? 0.6 : 1;
-    const worldDt=dt*slow;
-    for(const b of state.balls) stepBall(b,worldDt);
+    // advance ball(s)
+    for (const ball of state.balls) stepBall(ball, dt);
   }
 
   function checkWin(){
-    updateHUD();
-    if(state.scoreL>=WIN_SCORE || state.scoreR>=WIN_SCORE){
-      state.gameover=true;
-      showOverlay('Game Over', state.scoreL, state.scoreR);
-      // save high score
-      const hs = Number(localStorage.getItem('pickle_high')||0);
-      if(state.scoreL>hs){ localStorage.setItem('pickle_high', String(state.scoreL)); }
+    if (state.scoreL >= WIN_SCORE || state.scoreR >= WIN_SCORE){
+      state.gameover = true;
+      showOverlay('Game Over', `Final ${state.scoreL} – ${state.scoreR}`);
+      // high score save
+      const hs = Number(localStorage.getItem('retro_high')||0);
+      if (state.scoreL > hs) localStorage.setItem('retro_high', String(state.scoreL));
     }
   }
 
-  /* -------- Drawing (pickleball court + nicer UI) -------- */
-  function roundedRect(x,y,w,h,r){
-    const rr=Math.min(r,Math.min(w,h)/2);
-    ctx.beginPath();
-    ctx.moveTo(x+rr,y);
-    ctx.arcTo(x+w,y,x+w,y+h,rr);
-    ctx.arcTo(x+w,y+h,x,y+h,rr);
-    ctx.arcTo(x,y+h,x,y,rr);
-    ctx.arcTo(x,y,x+w,y,rr);
-    ctx.closePath();
-  }
-  function drawCourt(w,h){
-    // gradient background already via CSS; add court lines + net
-    // border
-    ctx.strokeStyle='rgba(255,255,255,.9)';
-    ctx.lineWidth=2; ctx.strokeRect(8,8,w-16,h-16);
-    // kitchen band
-    ctx.fillStyle='rgba(15,76,129,0.35)';
-    ctx.fillRect(0, h/2 - h*0.12, w, h*0.24);
-    // center service lines
-    ctx.beginPath();
-    ctx.moveTo(w/2, 8); ctx.lineTo(w/2, h/2 - h*0.12);
-    ctx.moveTo(w/2, h/2 + h*0.12); ctx.lineTo(w/2, h-8);
-    ctx.stroke();
+  /* ===== Draw (Retro CRT) ===== */
+  function drawCRT(w,h){
+    // background grid glow
+    ctx.fillStyle = '#0d1315';
+    ctx.fillRect(0,0,w,h);
 
-    // dotted net with subtle shimmer
-    const y=(h/2|0)-1;
-    const phase = (performance.now()/300)%1;
-    for(let x=0;x<w;x+=10){
-      const a=0.6+0.4*Math.abs(Math.sin((x/w+phase)*Math.PI));
-      ctx.fillStyle=`rgba(229,231,235,${a.toFixed(2)})`;
-      ctx.fillRect(x, y, 6, 2);
-    }
-  }
-  function drawPaddle(x,y,w,h,isLeft){
-    const handleH=Math.max(24,Math.round(h*0.18));
-    const handleW=Math.round(w*0.6);
-    const handleX=x+(w-handleW)/2;
-    const handleY=y+h-handleH-4;
+    // dotted midline
+    ctx.fillStyle = 'rgba(180,255,200,.75)';
+    const mid = (w/2|0)-1;
+    for (let y=10; y<h-10; y+=DOT_H+DOT_G) ctx.fillRect(mid, y, 2, DOT_H);
 
+    // thin inner border glow
+    ctx.strokeStyle = 'rgba(160,255,195,.22)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(8.5,8.5,w-17,h-17);
+  }
+
+  function drawPaddle(x,y,w,h){
     ctx.save();
-    ctx.shadowColor='rgba(0,0,0,.3)'; ctx.shadowBlur=8;
-    ctx.fillStyle=isLeft?'#1f2937':'#374151';
-    roundedRect(x,y,w,h-handleH+6,Math.round(w*0.45)); ctx.fill();
-    ctx.fillStyle=isLeft?'#34d399':'#60a5fa';
-    roundedRect(handleX,handleY,handleW,handleH,Math.round(handleW*0.3)); ctx.fill();
+    ctx.shadowColor='rgba(160,255,195,.35)'; ctx.shadowBlur=12;
+    ctx.fillStyle = '#caffb9';
+    roundedRect(x,y,w,h,P_R); ctx.fill();
     ctx.restore();
 
-    // subtle dots
-    ctx.fillStyle='rgba(255,255,255,0.06)';
-    for(let yy=y+10; yy<y+h-handleH-10; yy+=12){
-      for(let xx=x+6; xx<x+w-6; xx+=10){
-        ctx.beginPath(); ctx.arc(xx,yy,1.1,0,Math.PI*2); ctx.fill();
-      }
-    }
+    // face lines
+    ctx.strokeStyle='rgba(0,30,0,0.25)'; ctx.lineWidth=1;
+    ctx.beginPath();
+    for(let yy=y+6; yy<y+h-6; yy+=6){ ctx.moveTo(x+3,yy); ctx.lineTo(x+w-3,yy); }
+    ctx.stroke();
   }
+
   function drawBall(x,y){
-    const r=BALL*0.65, cx=x+BALL/2, cy=y+BALL/2;
-    const g=ctx.createRadialGradient(cx,cy,0,cx,cy,r*1.8);
-    g.addColorStop(0,'rgba(249,248,113,1)');
-    g.addColorStop(0.6,'rgba(249,248,113,0.45)');
-    g.addColorStop(1,'rgba(249,248,113,0)');
-    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,r*1.6,0,Math.PI*2); ctx.fill();
-
-    ctx.fillStyle='#f9f871'; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
-
-    // holes
-    ctx.fillStyle='rgba(0,0,0,0.25)';
-    const holes=8, ring=r*0.55;
-    for(let i=0;i<holes;i++){
-      const ang=i/holes*Math.PI*2, hx=cx+Math.cos(ang)*ring, hy=cy+Math.sin(ang)*ring;
-      ctx.beginPath(); ctx.arc(hx,hy,r*0.14,0,Math.PI*2); ctx.fill();
-    }
+    const cx=x+BALL/2, cy=y+BALL/2;
+    // glow
+    const g=ctx.createRadialGradient(cx,cy,0,cx,cy,10);
+    g.addColorStop(0,'rgba(255,238,170,1)');
+    g.addColorStop(1,'rgba(255,238,170,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,10,0,Math.PI*2); ctx.fill();
+    // core
+    ctx.fillStyle = '#ffde8a';
+    ctx.fillRect(x,y,BALL,BALL);
   }
+
   function draw(){
     const w=state.cssW, h=state.cssH;
-    drawCourt(w,h);
+    drawCRT(w,h);
 
-    const growK=state.effects.grow>0?1.5:1, pH=P_H*growK;
-    drawPaddle(16, state.lY, P_W, pH, true);
-    drawPaddle(w-P_W-16, state.rY, P_W, pH, false);
-
-    // power-ups (coins)
-    for(const pu of state.powerups){
-      ctx.save(); ctx.translate(pu.x, pu.y); ctx.globalAlpha=.95;
-      ctx.fillStyle='#0f172a'; ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2); ctx.fill();
-      ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=2; ctx.stroke();
-      ctx.font='700 12px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#e5e7eb';
-      ctx.fillText(({grow:'⬆',shield:'🛡',slowmo:'⏱',multiball:'✦',x2:'x2'})[pu.t]||'?',0,1);
-      ctx.restore();
-    }
+    // paddles
+    drawPaddle(12, state.lY, P_W, P_H);
+    drawPaddle(w - P_W - 12, state.rY, P_W, P_H);
 
     // balls
-    for(const b of state.balls) drawBall(b.x,b.y);
+    for (const b of state.balls) drawBall(b.x,b.y);
 
     // countdown
-    if(state.counting){
+    if (state.counting){
       const el=(performance.now()-state.t0)/1000;
       const rem=Math.max(0,3-Math.floor(el));
-      if(rem>0){
-        ctx.font='900 64px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
-        ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#f9f871';
-        ctx.globalAlpha=.95;
-        const frac=1-(el%1), s=1+0.2*(1-frac);
+      if (rem>0){
+        ctx.font = '900 72px ui-monospace, monospace';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle = '#ffdd7a'; ctx.globalAlpha=.95;
+        const frac = 1-(el%1), s = 1+0.18*(1-frac);
         ctx.save(); ctx.translate(w/2,h/2); ctx.scale(s,s); ctx.fillText(String(rem),0,0); ctx.restore();
         ctx.globalAlpha=1;
       } else state.counting=false;
     }
 
-    // update HUD plates
-    scoreL.textContent = state.scoreL;
-    scoreR.textContent = state.scoreR;
-    hud.textContent = state.paused ? 'Paused' : `Rally: ${state.rally}`;
+    // update DOM HUD
+    scL.textContent = String(state.scoreL);
+    scR.textContent = String(state.scoreR);
+    hud.textContent = state.gameover ? 'Game Over' : (state.paused ? 'Paused' : `Rally: ${state.rally}`);
 
-    // tell host we're ready after first paint
-    signalReady();
+    // tell Farcaster host we’re ready after first paint
+    signalReadyOnce();
   }
 
-  /* -------- Loop -------- */
+  /* ===== Loop ===== */
   function loop(ts){
-    if(!state.last) state.last=ts;
+    if (!state.last) state.last=ts;
     let dt=(ts-state.last)/1000; state.last=ts;
 
-    if(!state.paused && !state.gameover){
+    if (!state.paused && !state.gameover){
       state.accum=Math.min(MAX_ACCUM, state.accum+dt);
       while(state.accum>=FIXED_DT){
         step(FIXED_DT);
@@ -459,62 +452,72 @@
     requestAnimationFrame(loop);
   }
 
-  /* -------- Buttons & overlay logic -------- */
-  function showOverlay(title,l,r){
+  /* ===== Overlay & buttons ===== */
+  function showOverlay(title, sub){
     ovTitle.textContent = title;
-    ovL.textContent = l; ovR.textContent = r;
+    ovSub.textContent = sub || 'First to 11 • Arrow keys / drag to move';
     overlay.classList.add('show'); overlay.setAttribute('aria-hidden','false');
+    playBtn.style.display = state.gameover ? 'none' : 'inline-block';
+    againBtn.style.display = state.gameover ? 'inline-block' : 'none';
   }
   function hideOverlay(){
     overlay.classList.remove('show'); overlay.setAttribute('aria-hidden','true');
   }
 
-  restartBtn.onclick = ()=>{ hardReset(); };
-  closeBtn.onclick = ()=>{ hideOverlay(); state.paused=false; };
-  pauseBtn.onclick = ()=>{
-    state.paused=!state.paused;
-    if(state.paused){ showOverlay('Paused', state.scoreL, state.scoreR); }
-    else { hideOverlay(); }
+  playBtn.onclick = ()=>{ state.paused=false; state.counting=true; state.t0=performance.now(); hideOverlay(); };
+  againBtn.onclick= ()=>{
+    state.scoreL=0; state.scoreR=0; state.rally=0; state.gameover=false;
+    resetPositions(); state.paused=false; state.counting=true; state.t0=performance.now();
+    hideOverlay();
   };
+  pauseBtn.onclick= ()=>{
+    if (state.gameover) return;
+    state.paused = !state.paused;
+    if (state.paused) showOverlay('Paused'); else hideOverlay();
+  };
+  closeBtn.onclick= ()=>{ showOverlay('RETROPONG'); };
 
   addBtn.onclick = async ()=>{
     if(fc){ try{ await fc.actions.addMiniApp(); return; }catch(e){} }
-    // fallback: open your URL
-    window.open('https://pong-miniapp.vercel.app/','_blank');
+    // fallback: open your URL (replace with your real domain)
+    window.open('https://your-domain.com/','_blank');
   };
 
   shareBtn.onclick = async ()=>{
-    const hs = Number(localStorage.getItem('pickle_high')||0);
-    const text = `I just hit ${hs} in Pickle Pong! 🥒🏓 https://pong-miniapp.vercel.app/`;
+    const hs = Number(localStorage.getItem('retro_high')||0);
+    const text = `I just hit ${hs} in RETROPONG! 👾 https://your-domain.com/`;
     if(fc){ try{ await fc.actions.composeCast({ text }); return; }catch(e){} }
     if(navigator.share){ try{ await navigator.share({ text }); return; }catch(e){} }
-    // fallback: copy
-    try{
-      await navigator.clipboard.writeText(text);
-      shareBtn.textContent='✅ Copied!';
-      setTimeout(()=>shareBtn.textContent='📣 Share High Score',1600);
-    }catch(_){}
+    try{ await navigator.clipboard.writeText(text); shareBtn.textContent='✅ Copied!'; setTimeout(()=>shareBtn.textContent='📣 Share High Score',1400);}catch(_){}
   };
 
-  /* -------- Input -------- */
-  function onKey(e){ const d=e.type==='keydown';
-    if(e.key==='ArrowUp'||e.key==='w'||e.key==='W'){ keys.up=d; e.preventDefault(); }
-    if(e.key==='ArrowDown'||e.key==='s'||e.key==='S'){ keys.down=d; e.preventDefault(); }
-    if(e.key==='Escape'){ if(!state.gameover) pauseBtn.click(); }
+  /* ===== Input ===== */
+  function onKey(e){ const d = e.type==='keydown';
+    if (e.key==='ArrowUp'   || e.key==='w' || e.key==='W'){ keys.up=d;   e.preventDefault(); }
+    if (e.key==='ArrowDown' || e.key==='s' || e.key==='S'){ keys.down=d; e.preventDefault(); }
+    if (e.key==='Escape'){ pauseBtn.click(); }
+    if (e.key==='Enter' && overlay.classList.contains('show')){ (state.gameover?againBtn:playBtn).click(); }
   }
   window.addEventListener('keydown',onKey,{passive:false});
   window.addEventListener('keyup',onKey,{passive:false});
-  canvas.addEventListener('pointerdown',e=>{ pointerY=e.clientY; },{passive:true});
-  window.addEventListener('pointermove',e=>{ if(pointerY!=null) pointerY=e.clientY; },{passive:true});
-  window.addEventListener('pointerup',()=>{ pointerY=null; },{passive:true});
 
-  window.addEventListener('resize',sizeCanvas,{passive:true});
-  document.addEventListener('visibilitychange',()=>{ state.last=0; });
+  let pointerY=null;
+  canvas.addEventListener('pointerdown', e=>{ pointerY=e.clientY; },{passive:true});
+  window.addEventListener('pointermove', e=>{ if(pointerY!=null) pointerY=e.clientY; },{passive:true});
+  window.addEventListener('pointerup', ()=>{ pointerY=null; },{passive:true});
 
-  /* -------- Init -------- */
-  function init(){ sizeCanvas(); state.lY=(state.cssH-P_H)/2; state.rY=(state.cssH-P_H)/2; resetRound(Math.random()<0.5?-1:1); requestAnimationFrame(loop); }
+  window.addEventListener('resize', sizeCanvas, {passive:true});
+  document.addEventListener('visibilitychange', ()=>{ state.last=0; });
+
+  /* ===== Boot ===== */
+  function init(){
+    sizeCanvas();
+    resetPositions();
+    // show menu on load
+    state.paused = true; state.gameover=false; showOverlay('RETROPONG');
+    requestAnimationFrame(loop);
+  }
   init();
-
 })();
 </script>
 </body>
