@@ -5,7 +5,7 @@
   <title>Pong Mini App — Neon Power-ups</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 
-  <!-- Farcaster Mini App Embed (3:2 image recommended) -->
+  <!-- Farcaster Mini App Embed -->
   <meta name="fc:miniapp" content='{
     "version":"1",
     "imageUrl":"https://your-domain.com/og-1200x800.png",
@@ -20,7 +20,7 @@
       }
     }
   }'/>
-  <!-- Back-compat for older clients -->
+  <!-- Back-compat -->
   <meta name="fc:frame" content='{
     "version":"1",
     "imageUrl":"https://your-domain.com/og-1200x800.png",
@@ -39,20 +39,40 @@
   <style>
     :root {
       --bg: #0b0b14;
-      --mid: #1a1f2e;
-      --fg: #ffffff;
-      --accent: #ff9b0d;
-      --accent2: #6c7bff;
-      --glow: 0 0 12px rgba(255,155,13,.6), 0 0 24px rgba(255,155,13,.25);
+      --white: #ffffff;
+      --mid: #1b2450;
+      --orange: #ff9b0d;
+      --purple: #7a2dff;
     }
-    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg); }
+    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--white); }
     .wrap { position: fixed; inset: env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0) 0;
             display: grid; place-items: center; contain: strict; }
-    canvas { width: min(100vw, 100vh * (9/16)); height: calc(min(100vw, 100vh*(9/16)) / (9/16));
+    canvas { width: min(100vw, 100vh); height: min(100vw, 100vh);
              display:block; background: var(--bg); }
-    .hud { position: fixed; inset: 0 0 auto 0; text-align: center; font: 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:#9aa0a6; pointer-events:none; padding: 6px 0; }
-    .btnbar { position: fixed; inset: auto 0 env(safe-area-inset-bottom,0) 0; display:flex; gap:8px; justify-content:center; padding:10px; }
-    .btn { background:#121826; color:#cbd5e1; border:1px solid #26324a; border-radius:12px; padding:8px 12px; font: 600 14px/1 system-ui; }
+
+    .hud { position: fixed; inset: 0 0 auto 0; text-align: center;
+           font: 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+           color:#9aa0a6; pointer-events:none; padding: 6px 0; }
+
+    /* Big white scores like the mock */
+    .scores{
+      position:fixed; inset:10px 0 auto 0; display:flex; justify-content:space-between;
+      padding:0 14%; pointer-events:none;
+      font:900 72px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      letter-spacing:.5px; text-shadow:0 0 10px rgba(255,255,255,.25);
+    }
+    /* Bottom-right COMBO like the mock */
+    .combo{
+      position:fixed; right:24px; bottom:20px; pointer-events:none;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; text-align:right;
+    }
+    .combo .label{font-weight:900;font-size:22px;color:var(--orange);opacity:.95}
+    .combo .value{font-weight:900;font-size:60px;color:var(--orange)}
+
+    .btnbar { position: fixed; inset: auto 0 env(safe-area-inset-bottom,0) 0;
+              display:flex; gap:8px; justify-content:center; padding:10px; }
+    .btn { background:#121826; color:#cbd5e1; border:1px solid #26324a;
+           border-radius:12px; padding:8px 12px; font: 600 14px/1 system-ui; }
   </style>
 
   <!-- Mini App SDK (guarded) -->
@@ -62,6 +82,9 @@
   <div class="wrap">
     <canvas id="game" aria-label="Neon Pong"></canvas>
   </div>
+
+  <div class="scores"><div id="scL">0</div><div id="scR">0</div></div>
+  <div class="combo"><div class="label">COMBO</div><div class="value" id="comboV">0</div></div>
   <div class="hud" id="hud"></div>
   <div class="btnbar">
     <button class="btn" id="addBtn">Add to Farcaster</button>
@@ -76,9 +99,8 @@
   let fc = null;
   function miniAppReady() {
     if (window.FarcasterMiniApp && !fc) {
-      fc = new window.FarcasterMiniApp.MiniAppSDK(); // context/actions API
-      fc.actions.ready(); // hide splash once loaded (host will honor)  // spec actions. :contentReference[oaicite:1]{index=1}
-      // (Optional) inspect context for safe-area insets, user fid, etc.
+      fc = new window.FarcasterMiniApp.MiniAppSDK();
+      fc.actions.ready();
       fc.context().then(ctx => {
         if (ctx?.client?.safeAreaInsets) {
           document.documentElement.style.setProperty('--safe-top', (ctx.client.safeAreaInsets.top||0)+'px');
@@ -89,44 +111,42 @@
   document.addEventListener('DOMContentLoaded', miniAppReady);
 
   // Buttons (no-ops outside Farcaster)
+  let highScore = Number(localStorage.getItem('neon_high')||0);
   document.getElementById('addBtn').onclick = async () => {
     try { if (fc) await fc.actions.addMiniApp(); } catch(e){}
   };
   document.getElementById('shareBtn').onclick = async () => {
-    try {
-      if (fc) await fc.actions.composeCast({ text: `I just hit ${highScore} in Neon Pong! 🔥` });
-    } catch(e){}
+    try { if (fc) await fc.actions.composeCast({ text: `I just hit ${highScore} in Neon Pong! 🔥` }); } catch(e){}
   };
 
   // ----- Canvas + Game -----
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d', { alpha:false, desynchronized:true });
   const hud = document.getElementById('hud');
+  const scL = document.getElementById('scL');
+  const scR = document.getElementById('scR');
+  const comboV = document.getElementById('comboV');
 
+  // Timestep & sizes
   const DPR_MIN=1, DPR_MAX=2, FIXED_DT=1/60, MAX_ACCUM=0.25;
-  const PADDLE_W=12, PADDLE_H_BASE=90, BALL=10;
+  const BALL=10;
   const SPEED_BALL=230, SPEED_AI=310, SPEED_PADDLE=360;
+
+  // Visual knobs (match mock)
+  let PADDLE_W=16, PADDLE_H=220, PADDLE_R=8;         // rounded paddles
+  let DOT_W=3, DOT_H=10, DOT_GAP=10;                 // dotted midline
 
   const state = {
     dpr:1, cssW:0, cssH:0, last:0, accum:0, running:true,
     lY:0, rY:0,
-    bx:0, by:0, bvx:0, bvy:0,
     scoreL:0, scoreR:0, rally:0, multiplier:1,
     counting:true, t0:0,
     // power-ups
-    powerups: [],         // active items on field
-    effects: {            // active effects with timers (s)
-      grow: 0,            // enlarge player paddle
-      shield: 0,          // one free miss
-      slowmo: 0,          // world runs at 0.6x
-      multiball: 0,       // extra balls active
-      x2: 0               // double scoring
-    },
-    balls: []             // for multiball: [{x,y,vx,vy}]
+    powerups: [],
+    effects: { grow:0, shield:0, slowmo:0, multiball:0, x2:0 },
+    balls: [],
+    sparks:[]
   };
-
-  const rng = { s: 123456789, next() { this.s = (1664525*this.s + 1013904223)>>>0; return this.s/2**32; } };
-  const rand = () => Math.random(); // swap to rng.next() for determinism
 
   function clamp(v,a,b){ return v<a?a : v>b?b : v; }
 
@@ -139,105 +159,108 @@
     canvas.height= Math.max(1, Math.floor(state.cssH*dpr));
     ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.imageSmoothingEnabled=false;
+
+    // scale UI with canvas size
+    PADDLE_W = Math.max(14, Math.round(state.cssW*0.018));
+    PADDLE_H = Math.max(160, Math.round(state.cssH*0.55));
+    PADDLE_R = Math.round(PADDLE_W*0.45);
+    DOT_H    = Math.max(8, Math.round(state.cssH*0.012));
+    DOT_GAP  = DOT_H;
   }
 
   function resetPositions(){
-    state.lY = (state.cssH - PADDLE_H_BASE)/2;
-    state.rY = (state.cssH - PADDLE_H_BASE)/2;
+    state.lY = (state.cssH - PADDLE_H)/2;
+    state.rY = (state.cssH - PADDLE_H)/2;
     state.balls = [];
-    spawnBall(rand()<0.5?-1:1);
+    spawnBall(Math.random()<0.5?-1:1);
     state.counting=true; state.t0=performance.now();
   }
 
   function spawnBall(dir){
-    const angleY = clamp((rand()*2-1), -0.75, 0.75);
+    const angleY = clamp((Math.random()*2-1), -0.75, 0.75);
     const speed = SPEED_BALL * (1 + state.rally*0.015);
     const vx = dir*speed*Math.sqrt(1-angleY*angleY);
     const vy = speed*angleY;
-    state.bx=(state.cssW-BALL)/2; state.by=(state.cssH-BALL)/2; state.bvx=vx; state.bvy=vy;
-    // also track in balls list so multiball uses same codepath
-    state.balls = [{x:state.bx,y:state.by,vx,state:vx,vy}];
+    // FIXED: removed typo "vx,state:vx"
+    state.balls = [{ x:(state.cssW-BALL)/2, y:(state.cssH-BALL)/2, vx, vy }];
   }
 
   function addPowerup(){
-    // Randomly spawn a power-up every 4–7s (while playing)
     const types = ['grow','shield','slowmo','multiball','x2'];
-    const t = types[(rand()*types.length)|0];
-    const x = clamp(rand()*state.cssW, state.cssW*0.25, state.cssW*0.75);
-    const y = clamp(rand()*state.cssH, 40, state.cssH-40);
-    state.powerups.push({t, x, y, ttl:8}); // despawn after 8s
+    const t = types[(Math.random()*types.length)|0];
+    const x = clamp(Math.random()*state.cssW, state.cssW*0.25, state.cssW*0.75);
+    const y = clamp(Math.random()*state.cssH, 40, state.cssH-40);
+    state.powerups.push({t, x, y, ttl:8});
   }
-
-  // schedule powerups (simple timer)
   let nextPU = 2.5;
   function puTick(dt){
     nextPU -= dt;
     if (nextPU <= 0 && !state.counting) {
       addPowerup();
-      nextPU = 4 + rand()*3;
+      nextPU = 4 + Math.random()*3;
     }
-    // decay pickups
     for (let i=state.powerups.length-1;i>=0;i--){
       state.powerups[i].ttl -= dt;
       if (state.powerups[i].ttl<=0) state.powerups.splice(i,1);
     }
-    // decay effects
-    for (const k in state.effects) {
-      if (state.effects[k]>0) state.effects[k] -= dt;
-    }
+    for (const k in state.effects) if (state.effects[k]>0) state.effects[k] -= dt;
   }
 
   function activate(t){
     if (t==='grow')     state.effects.grow = 6;
-    if (t==='shield')   state.effects.shield = 999; // one charge; we’ll consume on miss
+    if (t==='shield')   state.effects.shield = 999;
     if (t==='slowmo')   state.effects.slowmo = 5;
-    if (t==='multiball'){ state.effects.multiball = 8; // spawn two extra balls now
+    if (t==='multiball'){
+      state.effects.multiball = 8;
       if (state.balls.length<3){
         const base = state.balls[0];
         state.balls.push({x:base.x,y:base.y,vx:-base.vx*1.05,vy: base.vy*0.8});
         state.balls.push({x:base.x,y:base.y,vx: base.vx*0.8, vy:-base.vy*1.05});
       }
     }
-    if (t==='x2')       state.effects.x2 = 10, state.multiplier = 2;
+    if (t==='x2')       { state.effects.x2 = 10; state.multiplier = 2; }
+  }
+
+  function addSparks(x,y){
+    for(let i=0;i<24;i++){
+      const a=Math.random()*Math.PI*2, sp=70+Math.random()*120;
+      state.sparks.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,t:0,life:0.35});
+    }
   }
 
   function stepBall(b, dt){
-    b.x += b.vx*dt;
-    b.y += b.vy*dt;
-    // bounce top/bottom
+    b.x += b.vx*dt; b.y += b.vy*dt;
+
     if (b.y<=0){ b.y=0; b.vy=Math.abs(b.vy); }
     else if (b.y+BALL>=state.cssH){ b.y=state.cssH-BALL; b.vy=-Math.abs(b.vy); }
 
     const growK = state.effects.grow>0?1.5:1;
-    const pH = PADDLE_H_BASE*growK;
+    const pH = PADDLE_H*growK;
 
-    // collide left paddle
-    if (b.x <= PADDLE_W+10){
+    // left paddle
+    if (b.x <= PADDLE_W+14){
       if (b.y+BALL>=state.lY && b.y<=state.lY+pH){
-        b.x=PADDLE_W+10; b.vx=Math.abs(b.vx)*1.04;
+        b.x=PADDLE_W+14; b.vx=Math.abs(b.vx)*1.04;
         const rel = ((b.y+BALL/2)-(state.lY+pH/2))/(pH/2);
-        b.vy += rel*90; state.rally++;
+        b.vy += rel*95; state.rally++; addSparks(b.x, b.y+BALL/2);
       }
     }
-    // collide right paddle (AI)
-    const rx = state.cssW-(PADDLE_W+10)-BALL;
+    // right paddle
+    const rx = state.cssW-(PADDLE_W+14)-BALL;
     if (b.x >= rx){
       if (b.y+BALL>=state.rY && b.y<=state.rY+pH){
         b.x=rx; b.vx=-Math.abs(b.vx)*1.04;
         const rel = ((b.y+BALL/2)-(state.rY+pH/2))/(pH/2);
-        b.vy += rel*90; state.rally++;
+        b.vy += rel*95; state.rally++; addSparks(rx+BALL, b.y+BALL/2);
       }
     }
 
     // score
     if (b.x+BALL < 0){
-      // left missed
-      if (state.effects.shield>0){ // consume shield
-        state.effects.shield = 0;
-        // bounce back from wall as if shielded
-        b.x = 0; b.vx = Math.abs(b.vx);
+      if (state.effects.shield>0){
+        state.effects.shield = 0; b.x = 0; b.vx = Math.abs(b.vx);
       } else {
-        state.scoreR++; state.rally=0; state.multiplier=1; state.balls=[b]; // reset others
+        state.scoreR++; state.rally=0; state.multiplier=1; state.balls=[b];
         spawnBall(+1); state.counting=true; state.t0=performance.now();
       }
     } else if (b.x > state.cssW){
@@ -250,73 +273,118 @@
   function step(dt){
     if (state.counting) return;
 
-    // input → left paddle (keyboard & pointer blended)
-    const pH = PADDLE_H_BASE*(state.effects.grow>0?1.5:1);
+    const pH = PADDLE_H*(state.effects.grow>0?1.5:1);
     if (keys.up) state.lY -= SPEED_PADDLE*dt;
     if (keys.down) state.lY += SPEED_PADDLE*dt;
-    // pointer chase (if active)
+
     if (pointerY != null){
       const rect = canvas.getBoundingClientRect();
       const y = (pointerY - rect.top) * (state.cssH/rect.height) - pH/2;
       const dy = clamp(y,0,state.cssH-pH) - state.lY;
-      const maxStep = SPEED_PADDLE*dt;
-      state.lY += clamp(dy, -maxStep, maxStep);
+      state.lY += clamp(dy, -SPEED_PADDLE*dt, SPEED_PADDLE*dt);
     }
     state.lY = clamp(state.lY,0,state.cssH-pH);
 
-    // AI paddle: track average ball y
+    // AI: follow average ball y
     const avgY = state.balls.reduce((s,b)=>s+b.y,0)/state.balls.length;
     const target = avgY + BALL/2 - pH/2;
     const dy = target - state.rY;
-    const stepY = clamp(dy, -SPEED_AI*dt, SPEED_AI*dt);
-    state.rY = clamp(state.rY + stepY, 0, state.cssH-pH);
+    state.rY = clamp(state.rY + clamp(dy, -SPEED_AI*dt, SPEED_AI*dt), 0, state.cssH-pH);
 
-    // Power-up timers/spawns
     puTick(dt);
-
-    // Check player collects power-ups (circle-ish pickup)
+    // pickups
     for (let i=state.powerups.length-1;i>=0;i--){
       const pu = state.powerups[i];
       if (pu.x > 10 && pu.x < state.cssW*0.5 && pu.y > state.lY-8 && pu.y < state.lY+pH+8){
         activate(pu.t); state.powerups.splice(i,1);
       }
     }
-    // slow-mo affects world
+
     const slow = state.effects.slowmo>0 ? 0.6 : 1;
     const worldDt = dt*slow;
-
-    // Advance all balls
     for (const b of state.balls) stepBall(b, worldDt);
+
+    // fade sparks
+    for (let i=state.sparks.length-1;i>=0;i--){
+      const p=state.sparks[i]; p.t+=dt;
+      p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.98; p.vy*=0.98;
+      if (p.t>=p.life) state.sparks.splice(i,1);
+    }
   }
 
-  // Render
+  // ---------- Drawing ----------
+  function roundedRect(x,y,w,h,r){
+    const rr=Math.min(r,Math.min(w,h)/2);
+    ctx.beginPath();
+    ctx.moveTo(x+rr,y);
+    ctx.arcTo(x+w,y,x+w,y+h,rr);
+    ctx.arcTo(x+w,y+h,x,y+h,rr);
+    ctx.arcTo(x,y+h,x,y,rr);
+    ctx.arcTo(x,y,x+w,y,rr);
+    ctx.closePath();
+  }
+
+  function drawPU(color, glyph){
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2); ctx.fill();
+    ctx.font='700 12px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle:'#0b0b14';
+    ctx.fillText(glyph,0,1);
+  }
+
+  function drawComet(x,y,vx,vy){
+    const len = clamp(Math.hypot(vx,vy)*0.03, 18, 56); // longer trail
+    const ang = Math.atan2(vy,vx);
+    ctx.save(); ctx.translate(x+BALL/2, y+BALL/2); ctx.rotate(ang);
+
+    // outer purple haze
+    let g = ctx.createLinearGradient(-len*1.4,0,0,0);
+    g.addColorStop(0,'rgba(122,45,255,0)');
+    g.addColorStop(1,'rgba(122,45,255,0.40)');
+    ctx.fillStyle=g; ctx.fillRect(-len*1.4,-5, len*1.4, 10);
+
+    // inner orange trail
+    g = ctx.createLinearGradient(-len,0,0,0);
+    g.addColorStop(0,'rgba(255,155,13,0)');
+    g.addColorStop(1,'rgba(255,155,13,0.95)');
+    ctx.fillStyle=g; ctx.fillRect(-len,-3, len, 6);
+
+    ctx.restore();
+
+    // orange halo + white core
+    const cx=x+BALL/2, cy=y+BALL/2, r=10;
+    const rg = ctx.createRadialGradient(cx,cy,0,cx,cy,r);
+    rg.addColorStop(0,'rgba(255,205,120,1)');
+    rg.addColorStop(0.45,'rgba(255,155,13,0.95)');
+    rg.addColorStop(1,'rgba(255,155,13,0)');
+    ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.fillRect(x, y, BALL, BALL);
+  }
+
   function draw(){
     const w=state.cssW, h=state.cssH;
+
+    // background stars
     ctx.fillStyle = '#0b0b14'; ctx.fillRect(0,0,w,h);
+    ctx.fillStyle = '#0e1430';
+    for (let y=0;y<h;y+=26){ ctx.fillRect(((y*17)%w), y, 2, 2); }
 
-    // starry background specks
-    ctx.fillStyle = '#101626';
-    for (let y=0;y<h;y+=22){ ctx.fillRect(((y*13)%w), y, 2, 2); }
+    // dotted midline
+    ctx.fillStyle = '#1b2450';
+    const mid=(w/2|0)-1;
+    for(let y=0;y<h;y+=DOT_H+DOT_GAP) ctx.fillRect(mid, y, DOT_W, DOT_H);
 
-    // mid dotted line
-    ctx.fillStyle = '#202845';
-    for(let y=0;y<h;y+=14){ ctx.fillRect((w/2|0)-1, y, 2, 8); }
-
-    // paddles with glow
-    const growK = state.effects.grow>0?1.5:1;
-    const pH = PADDLE_H_BASE*growK;
-    ctx.fillStyle = '#fff';
-    ctx.shadowColor = 'rgba(255,255,255,.35)'; ctx.shadowBlur = 12;
-    ctx.fillRect(10, state.lY, PADDLE_W, pH);
-    ctx.fillRect(w - PADDLE_W - 10, state.rY, PADDLE_W, pH);
-    ctx.shadowBlur = 0;
+    // paddles (rounded + glow)
+    ctx.save();
+    ctx.shadowColor='rgba(255,255,255,.35)'; ctx.shadowBlur=16;
+    ctx.fillStyle='#ffffff';
+    roundedRect(14, state.lY, PADDLE_W, PADDLE_H, PADDLE_R); ctx.fill();
+    roundedRect(w - PADDLE_W - 14, state.rY, PADDLE_W, PADDLE_H, PADDLE_R); ctx.fill();
+    ctx.restore();
 
     // power-ups
     for (const pu of state.powerups){
       ctx.save();
       ctx.translate(pu.x, pu.y);
-      const t = (performance.now()/1000)%1;
-      ctx.globalAlpha = 0.8;
+      ctx.globalAlpha = 0.85;
       if (pu.t==='grow'){ drawPU('#6c7bff','⬆'); }
       if (pu.t==='shield'){ drawPU('#33e1ff','🛡'); }
       if (pu.t==='slowmo'){ drawPU('#ffd166','⏱'); }
@@ -325,67 +393,40 @@
       ctx.restore();
     }
 
-    // balls with comet trail
-    for (const b of state.balls){
-      drawComet(b.x, b.y, b.vx, b.vy);
-      ctx.fillStyle = '#fff'; ctx.fillRect(b.x, b.y, BALL, BALL);
+    // sparks
+    for (const p of state.sparks){
+      const a = 1 - (p.t/p.life);
+      ctx.fillStyle = `rgba(255,155,13,${(0.25 + 0.75*a).toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 2.4*a+0.6, 0, Math.PI*2); ctx.fill();
     }
 
-    // scores & UI
-    ctx.font = '700 28px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
-    ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillStyle='#fff';
-    ctx.fillText(String(state.scoreL), w*0.25, 10);
-    ctx.fillText(String(state.scoreR), w*0.75, 10);
+    // balls with comet glow
+    for (const b of state.balls) drawComet(b.x, b.y, b.vx, b.vy);
 
-    // combo + active effect badges
-    ctx.font='600 14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
-    let bx = w-10; const by = h-12;
-    const badges = [];
-    if (state.effects.x2>0) badges.push('x2');
-    if (state.effects.grow>0) badges.push('GROW');
-    if (state.effects.shield>0) badges.push('SHIELD');
-    if (state.effects.slowmo>0) badges.push('SLOW');
-    if (state.effects.multiball>0) badges.push('MB');
-    for (let i=badges.length-1;i>=0;i--){
-      const label = badges[i]; const wtxt = ctx.measureText(label).width+12;
-      bx -= wtxt+8;
-      ctx.fillStyle='rgba(18,24,38,.9)'; ctx.fillRect(bx, by-18, wtxt, 20);
-      ctx.strokeStyle='#26324a'; ctx.strokeRect(bx+.5, by-17.5, wtxt-1, 19);
-      ctx.fillStyle='#cbd5e1'; ctx.fillText(label, bx+wtxt/2, by-16);
-    }
-
-    // countdown
+    // countdown (orange)
     if (state.counting){
       const el = (performance.now()-state.t0)/1000;
       const rem = Math.max(0, 3 - Math.floor(el));
       if (rem>0){
-        ctx.font='800 64px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+        ctx.font='900 64px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
         ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#ff9b0d';
-        ctx.globalAlpha = 0.85;
+        ctx.globalAlpha = 0.9;
         const frac = 1-(el%1), s = 1+0.25*(1-frac);
         ctx.save(); ctx.translate(w/2,h/2); ctx.scale(s,s); ctx.fillText(String(rem),0,0); ctx.restore();
         ctx.globalAlpha = 1;
       } else { state.counting=false; }
     }
 
+    // lightweight HUD text
     hud.textContent = `Rally: ${state.rally}  ${state.multiplier>1?`• Multiplier x${state.multiplier}`:''}`;
+
+    // DOM scores + combo
+    scL.textContent = String(state.scoreL);
+    scR.textContent = String(state.scoreR);
+    comboV.textContent = String(Math.max(state.rally,0));
   }
 
-  function drawPU(color, glyph){
-    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2); ctx.fill();
-    ctx.font='700 12px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#0b0b14';
-    ctx.fillText(glyph,0,1);
-  }
-  function drawComet(x,y,vx,vy){
-    const len = clamp(Math.hypot(vx,vy)*0.02, 6, 24);
-    ctx.save(); ctx.translate(x+BALL/2, y+BALL/2); ctx.rotate(Math.atan2(vy,vx));
-    const grd = ctx.createLinearGradient(-len,0,0,0);
-    grd.addColorStop(0,'rgba(255,155,13,0)');
-    grd.addColorStop(1,'rgba(255,155,13,.9)');
-    ctx.fillStyle=grd; ctx.fillRect(-len,-2,len,4); ctx.restore();
-  }
-
-  // loop
+  // ---------- loop ----------
   function loop(ts){
     if (!state.running){ state.last=0; requestAnimationFrame(loop); return; }
     if (!state.last) state.last = ts;
@@ -411,12 +452,9 @@
 
   // lifecycle
   window.addEventListener('resize', sizeCanvas, {passive:true});
-  document.addEventListener('visibilitychange', ()=>{
-    state.running = !document.hidden; state.last=0;
-  });
+  document.addEventListener('visibilitychange', ()=>{ state.running = !document.hidden; state.last=0; });
 
   // high score
-  let highScore = Number(localStorage.getItem('neon_high')||0);
   setInterval(()=>{ if (state.scoreL>highScore){ highScore=state.scoreL; localStorage.setItem('neon_high', String(highScore)); }}, 1000);
 
   // init
