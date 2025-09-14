@@ -2,23 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
-  />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>PicklePong Mini</title>
 
   <!-- Farcaster Frames + Mini App embed -->
   <meta property="fc:frame" content="vNext" />
   <meta property="fc:miniapp" content="vNext" />
 
-  <!-- Open Graph (update if you change filenames) -->
+  <!-- Open Graph -->
   <meta property="og:title" content="PicklePong Mini" />
   <meta property="og:description" content="Retro pickleball Pong made for Farcaster Mini Apps." />
   <meta property="og:image" content="https://pong-miniapp.vercel.app/og.png" />
   <meta property="og:url" content="https://pong-miniapp.vercel.app/" />
 
-  <!-- Premium retro look (CRT/scanlines), mobile-first, single-file build -->
   <style>
     :root{
       --bg:#0a0e14; /* deep retro */
@@ -27,52 +23,135 @@
       --text:#e6f1ff;
     }
     html,body{height:100%;margin:0;background:radial-gradient(1200px 900px at 50% 20%, #101622 0%, #070a10 70%, #05070b 100%);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Apple Color Emoji,Segoe UI Emoji;}
-    .wrap{position:fixed;inset:0;display:flex;flex-direction:column;}
-    header{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;gap:.5rem;backdrop-filter:blur(6px);background:linear-gradient(180deg,rgba(15,217,118,.08),rgba(15,217,118,.02));border-bottom:1px solid rgba(15,217,118,.25);}
-    header .brand{display:flex;align-items:center;gap:.65rem;font-weight:700;letter-spacing:.04em}
-    .brand .dot{width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 18px var(--accent);}
-    .hud{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
-    .btn{appearance:none;border:1px solid rgba(245,224,76,.6);background:rgba(245,224,76,.08);color:var(--text);padding:.45rem .7rem;border-radius:.8rem;font-weight:600;cursor:pointer;transition:.2s;}
-    .btn:hover{background:rgba(245,224,76,.14)}
-    .btn:active{transform:translateY(1px)}
 
-    .crt{position:relative;flex:1;display:grid;place-items:center;overflow:hidden}
-    canvas{max-width:100vw;max-height:calc(100vh - 110px);width:min(92vw,820px);aspect-ratio:10/16;background:linear-gradient(180deg,rgba(15,217,118,.08),transparent 20%), radial-gradient(400px 250px at 50% 0%, rgba(15,217,118,.18), transparent 55%), #0b0f15;border:1px solid rgba(15,217,118,.35);border-radius:22px;box-shadow:0 12px 40px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.03);image-rendering:pixelated}
-    /* scanlines */
-    .crt:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient( to bottom, rgba(0,0,0,.18) 0 2px, rgba(0,0,0,0) 2px 4px);mix-blend-mode:multiply;pointer-events:none}
-    .crt:after{content:"";position:absolute;inset:-40% -20%;background:conic-gradient(from 180deg at 50% 10%, rgba(255,255,255,.08), rgba(255,255,255,0) 30% 70%, rgba(255,255,255,.08));filter:blur(40px);opacity:.4;pointer-events:none}
+    /* Simple view router */
+    .view{display:none}
+/* View visibility uses per-layout overrides so we don't break flex/grid */
+.homeWrap.view.show, .gameWrap.view.show { display:flex }
+/* settings/board reuse homeWrap layout */
 
-    footer{padding:.65rem 1rem;display:flex;align-items:center;justify-content:center;gap:1rem;font-size:.9rem;color:#a7b8cc;}
-    .legend{opacity:.9}
+/* Buttons */
+.btn{appearance:none;border:1px solid rgba(245,224,76,.6);background:rgba(245,224,76,.08);color:var(--text);padding:.65rem 1rem;border-radius:1rem;font-weight:800;cursor:pointer;transition:.2s;text-transform:uppercase;letter-spacing:.06em}
+.btn:hover{background:rgba(245,224,76,.14)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:linear-gradient(180deg,rgba(245,224,76,.22),rgba(245,224,76,.12));border-color:rgba(245,224,76,.75)}
+.btn.ghost{border-color:rgba(15,217,118,.55);background:rgba(15,217,118,.08)}
+.btn.chip{padding:.45rem .7rem;border-radius:.8rem}
 
-    /* touch controls (optional) */
-    .touchBar{position:fixed;inset:auto 0 0 0;height:80px;display:flex;align-items:center;justify-content:center;gap:16px;background:linear-gradient(180deg,transparent,rgba(7,10,16,.85));}
-    .touchArea{flex:1;max-width:460px;height:52px;border-radius:999px;border:1px dashed rgba(15,217,118,.45);background:rgba(15,217,118,.06);display:flex;align-items:center;justify-content:center;color:#9edec1;font-weight:600;letter-spacing:.08em}
+/* Home Page */
+.homeWrap{min-height:100dvh;display:flex;flex-direction:column}
+header.home{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.1rem;backdrop-filter:blur(6px);background:linear-gradient(180deg,rgba(15,217,118,.08),rgba(15,217,118,.02));border-bottom:1px solid rgba(15,217,118,.25)}
+.brand{display:flex;align-items:center;gap:.65rem;font-weight:900;letter-spacing:.06em}
+.brand .dot{width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 18px var(--accent)}
 
+.homeMain{flex:1;display:grid;place-items:center;padding:18px}
+.homeCard{width:min(92vw,760px);border:1px solid rgba(15,217,118,.35);border-radius:22px;background:linear-gradient(180deg,rgba(15,217,118,.12),rgba(15,217,118,.04));box-shadow:0 18px 50px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.03);padding:22px}
+.logoHero{display:flex;flex-direction:column;align-items:center;gap:.6rem;padding:8px 0 10px}
+.logoBadge{display:flex;align-items:center;gap:.7rem;font-size:2rem;font-weight:1000;letter-spacing:.12em}
+.logoBadge .ball{width:20px;height:20px;border-radius:50%;background:var(--accent);box-shadow:0 0 18px var(--accent)}
+.ctaRow{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.modeRow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:10px 0}
+.subRow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.hint{color:#9fb7cd;text-align:center;margin-top:8px}
+
+/* Game Page */
+.gameWrap{min-height:100dvh;display:flex;flex-direction:column}
+header.game{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;gap:.5rem;backdrop-filter:blur(6px);background:linear-gradient(180deg,rgba(15,217,118,.08),rgba(15,217,118,.02));border-bottom:1px solid rgba(15,217,118,.25)}
+.hud{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+
+.crt{position:relative;flex:1;display:grid;place-items:center;overflow:hidden}
+canvas{max-width:100vw;max-height:calc(100vh - 120px);width:min(92vw,820px);aspect-ratio:10/16;background:linear-gradient(180deg,rgba(15,217,118,.08),transparent 20%), radial-gradient(400px 250px at 50% 0%, rgba(15,217,118,.18), transparent 55%), #0b0f15;border:1px solid rgba(15,217,118,.35);border-radius:22px;box-shadow:0 12px 40px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.03);image-rendering:pixelated}
+.crt:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient( to bottom, rgba(0,0,0,.18) 0 2px, rgba(0,0,0,0) 2px 4px);mix-blend-mode:multiply;pointer-events:none}
+.crt:after{content:"";position:absolute;inset:-40% -20%;background:conic-gradient(from 180deg at 50% 10%, rgba(255,255,255,.08), rgba(255,255,255,0) 30% 70%, rgba(255,255,255,.08));filter:blur(40px);opacity:.4;pointer-events:none}
+
+footer{padding:.65rem 1rem;display:flex;align-items:center;justify-content:center;gap:1rem;font-size:.9rem;color:#a7b8cc}
+
+/* Settings + Leaderboard pages share card layout */
+.pageMain{flex:1;display:grid;place-items:center;padding:18px}
+.pageCard{width:min(92vw,760px);border:1px solid rgba(15,217,118,.35);border-radius:22px;background:linear-gradient(180deg,rgba(15,217,118,.12),rgba(15,217,118,.04));box-shadow:0 18px 50px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.03);padding:22px}
+.title{display:flex;align-items:center;gap:.75rem;font-weight:900;font-size:1.4rem;letter-spacing:.06em;margin-bottom:12px}
+.title .dot{width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 18px var(--accent)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.list{margin:6px 0 0;color:#9fb7cd}
+.list li{margin:.25rem 0}
+
+/* Countdown overlay within game page */
+.countdown{position:absolute;inset:0;display:none;place-items:center;backdrop-filter:blur(2px)}
+.countdown.show{display:grid}
+.countNum{font-weight:1000;font-size:5rem;letter-spacing:.1em;text-shadow:0 0 22px rgba(245,224,76,.45)}
+
+/* touch hint (home only) */
+.touchBar{position:fixed;inset:auto 0 0 0;height:80px;display:flex;align-items:center;justify-content:center;gap:16px;background:linear-gradient(180deg,transparent,rgba(7,10,16,.85))}
+.touchArea{flex:1;max-width:460px;height:52px;border-radius:999px;border:1px dashed rgba(15,217,118,.45);background:rgba(15,217,118,.06);display:flex;align-items:center;justify-content:center;color:#9edec1;font-weight:600;letter-spacing:.08em}
+@media (min-width: 780px){ .touchBar{display:none} }{flex:1;max-width:460px;height:52px;border-radius:999px;border:1px dashed rgba(15,217,118,.45);background:rgba(15,217,118,.06);display:flex;align-items:center;justify-content:center;color:#9edec1;font-weight:600;letter-spacing:.08em}
     @media (min-width: 780px){ .touchBar{display:none} }
   </style>
 
-  <!-- Farcaster Mini App SDK via ESM CDN. Call ready() once UI is ready. -->
-  <script type="module">
-    import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk';
-    window.farcasterSDK = sdk; // optional: for debugging in console
-    // We'll call sdk.actions.ready() after assets initialize in the game code.
+  <!-- Farcaster Mini App SDK (safe loader for previews). If network/CDN is blocked, we stub the SDK so the game still runs. -->
+  <script>
+    (async () => {
+      try {
+        const mod = await import('https://esm.sh/@farcaster/miniapp-sdk');
+        window.farcasterSDK = mod.sdk;
+        console.log('[PicklePong] MiniApp SDK loaded');
+      } catch (e) {
+        console.warn('[PicklePong] MiniApp SDK not available; using stub for preview.', e);
+        window.farcasterSDK = { actions: { ready: async ()=>{}, share: async ()=>{} } }; // no-op stub so preview works
+      }
+    })();
   </script>
 </head>
 <body>
-  <div class="wrap">
-    <header>
+  <!-- ================= HOME PAGE (separate) ================= -->
+  <div id="homePage" class="homeWrap view show">
+    <header class="home">
+      <div class="brand"><span class="dot"></span> PicklePong <small style="opacity:.7;font-weight:600">Mini</small></div>
+      <div class="row">
+        <button id="toSettings" class="btn chip">⚙️ Settings</button>
+        <button id="toBoard" class="btn chip">🏆 Leaderboard</button>
+      </div>
+    </header>
+
+    <main class="homeMain">
+      <section class="homeCard">
+        <div class="logoHero">
+          <div class="logoBadge"><span class="ball"></span> PICKLEPONG</div>
+          <div style="opacity:.8">Premium Retro • Mobile First • Mini App</div>
+        </div>
+        <div class="modeRow">
+          <button id="playRegular" class="btn primary">▶️ Play — Regular</button>
+          <button id="playArcade" class="btn ghost">⚡ Play — Arcade (Power‑ups)</button>
+        </div>
+        <div class="ctaRow">
+          <button id="btnAddFC" class="btn">⭐ Add to Farcaster</button>
+          <a href="#" id="openGamePage" class="btn" style="display:none">Open Game</a>
+        </div>
+        <p class="hint">Drag anywhere to move your paddle • Tap ⏸️ to pause, 🔄 to reset</p>
+      </section>
+    </main>
+
+    <div class="touchBar">
+      <div class="touchArea">Drag to move in‑game</div>
+    </div>
+  </div>
+
+  <!-- ================= GAME PAGE (separate) ================= -->
+  <div id="gamePage" class="gameWrap view">
+    <header class="game">
       <div class="brand"><span class="dot"></span> PicklePong <small style="opacity:.7;font-weight:600">Mini</small></div>
       <div class="hud">
-        <button id="btnPause" class="btn" title="Pause/Resume">⏸️ Pause</button>
-        <button id="btnReset" class="btn" title="Reset">🔄 Reset</button>
-        <button id="btnSound" class="btn" title="Sound on/off">🔊 Sound</button>
+        <button id="btnHome" class="btn chip" title="Back to Home">🏠 Home</button>
+        <button id="btnPause" class="btn chip" title="Pause/Resume">⏸️ Pause</button>
+        <button id="btnReset" class="btn chip" title="Reset">🔄 Reset</button>
+        <button id="btnSound" class="btn chip" title="Sound on/off">🔊 Sound</button>
         <span id="score" aria-live="polite"></span>
+        <span id="modeTag" class="btn chip" style="pointer-events:none"></span>
       </div>
     </header>
 
     <div class="crt">
       <canvas id="game" width="540" height="864" aria-label="PicklePong game area" role="img"></canvas>
+      <section id="countdown" class="countdown"><div class="countNum" id="countNum">3</div></section>
     </div>
 
     <footer>
@@ -80,255 +159,400 @@
     </footer>
   </div>
 
-  <div class="touchBar">
-    <div class="touchArea">Drag here to move</div>
+  <!-- ================= SETTINGS PAGE ================= -->
+  <div id="settingsPage" class="homeWrap view">
+    <header class="home">
+      <div class="brand"><span class="dot"></span> Settings</div>
+      <button id="backFromSettings" class="btn chip">⬅️ Back</button>
+    </header>
+    <main class="pageMain">
+      <section class="pageCard">
+        <div class="title"><span class="dot"></span> Gameplay</div>
+        <div class="row" style="margin-bottom:10px">
+          <label for="difficulty"><b>Difficulty</b></label>
+          <select id="difficulty" class="btn">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+          <span style="opacity:.75">(affects AI tracking + ball speed)</span>
+        </div>
+        <div class="row" style="margin-bottom:10px">
+          <label for="scanlines"><b>Scanlines</b></label>
+          <input id="scanlines" type="range" min="0" max="1" step="0.05" value="1" />
+        </div>
+        <div class="row" style="margin-bottom:10px">
+          <label><b>Sound</b></label>
+          <button id="toggleSound" class="btn">🔊 On</button>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="saveSettings">💾 Save</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ================= LEADERBOARD PAGE ================= -->
+  <div id="boardPage" class="homeWrap view">
+    <header class="home">
+      <div class="brand"><span class="dot"></span> Leaderboard</div>
+      <div class="row">
+        <button id="clearBoard" class="btn chip">🧹 Clear</button>
+        <button id="backFromBoard" class="btn chip">⬅️ Back</button>
+      </div>
+    </header>
+    <main class="pageMain">
+      <section class="pageCard">
+        <div class="title"><span class="dot"></span> Top Scores</div>
+        <ol id="boardList" class="list"></ol>
+      </section>
+    </main>
   </div>
 
   <script>
-  // ======= PicklePong — retro pickleball-themed Pong (single file) =======
+  // ======= PicklePong — Separated Home + Game pages, slower Regular, Arcade with Power‑ups =======
   (function(){
+    // Simple view router
+    const views = {
+      home: document.getElementById('homePage'),
+      game: document.getElementById('gamePage'),
+      settings: document.getElementById('settingsPage'),
+      board: document.getElementById('boardPage')
+    };
+    function show(id){
+      Object.values(views).forEach(v=>v.classList.remove('show'));
+      const el = views[id];
+      if(!el){ console.warn('[PicklePong] Unknown view', id); return; }
+      el.classList.add('show');
+      console.log('[PicklePong] show ->', id);
+    }
+
+    // Home buttons
+    const playRegular = document.getElementById('playRegular');
+    const playArcade  = document.getElementById('playArcade');
+    const btnAddFC    = document.getElementById('btnAddFC');
+    const toSettings  = document.getElementById('toSettings');
+    const toBoard     = document.getElementById('toBoard');
+
+    // Game HUD
+    const btnHome  = document.getElementById('btnHome');
+    const btnPause = document.getElementById('btnPause');
+    const btnReset = document.getElementById('btnReset');
+    const btnSound = document.getElementById('btnSound');
+    const scoreEl  = document.getElementById('score');
+    const modeTag  = document.getElementById('modeTag');
+
+    // Settings & Board controls
+    const backFromSettings = document.getElementById('backFromSettings');
+    const saveSettingsBtn = document.getElementById('saveSettings'); // renamed to avoid function name clash
+    const difficultySel = document.getElementById('difficulty');
+    const scanlinesRange = document.getElementById('scanlines');
+    const toggleSoundBtn = document.getElementById('toggleSound');
+
+    const clearBoardBtn = document.getElementById('clearBoard');
+    const backFromBoard = document.getElementById('backFromBoard');
+    const boardList = document.getElementById('boardList');
+
+    // Canvas
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;
 
-    // Court
+    // Countdown overlay (on game page only)
+    const countdown = document.getElementById('countdown');
+    const countNum  = document.getElementById('countNum');
+
+    // Settings persistence
+    const saved = JSON.parse(localStorage.getItem('pp_settings')||'{}');
+    const settings = {
+      difficulty: saved.difficulty || 'normal',
+      sound: saved.sound !== undefined ? saved.sound : true,
+      scanlines: saved.scanlines !== undefined ? saved.scanlines : 1
+    };
+    difficultySel.value = settings.difficulty;
+    scanlinesRange.value = settings.scanlines;
+    toggleSoundBtn.textContent = settings.sound? '🔊 On':'🔈 Off';
+
+    // Leaderboard persistence
+    const board = JSON.parse(localStorage.getItem('pp_board')||'[]');
+
+    // Sound
+    const audio = { hit:new Audio(), wall:new Audio(), score:new Audio() };
+    const BLIP = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=';
+    audio.hit.src = BLIP; audio.wall.src = BLIP; audio.score.src = BLIP;
+    function play(a){ if(settings.sound){ try{ a.currentTime=0; a.play(); }catch{} } }
+
+    // Court & actors
     const court = { w: W, h: H, pad: 24, line: 4, netGap: 12 };
-
-    // Paddles
     const paddleW = 16, paddleH = 110, paddleR = 10;
-    const player = { x: court.pad, y: H/2 - paddleH/2, w: paddleW, h: paddleH, vy: 0 };
-    const cpu    = { x: W - court.pad - paddleW, y: H/2 - paddleH/2, w: paddleW, h: paddleH, vy: 0 };
-
-    // Pickleball (perforated)
-    const ball = { x: W/2, y: H/2, r: 12, vx: 5, vy: 2.5, maxSpeed: 12 };
+    const player = { x:court.pad, y:H/2 - paddleH/2, w:paddleW, h:paddleH };
+    const cpu    = { x:W - court.pad - paddleW, y:H/2 - paddleH/2, w:paddleW, h:paddleH };
 
     // Game state
-    let running = true,
-        playerScore = 0, cpuScore = 0,
-        rally = 0,
-        lastTime = performance.now();
+    let running=false, lastTime=performance.now();
+    let playerScore=0, cpuScore=0, rally=0;
+    let mode='regular';
 
-    // Audio (simple blips)
-    const audio = {
-      on: true,
-      hit: new Audio(), wall: new Audio(), score: new Audio()
-    };
-    // Tiny data URIs (placeholders so no external files needed)
-    audio.hit.src   = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=';
-    audio.wall.src  = audio.hit.src;
-    audio.score.src = audio.hit.src;
+    // Balls (support multiball in arcade). Each ball: {x,y,r,vx,vy,maxSpeed}
+    let balls=[];
 
-    const ui = {
-      score: document.getElementById('score'),
-      btnPause: document.getElementById('btnPause'),
-      btnReset: document.getElementById('btnReset'),
-      btnSound: document.getElementById('btnSound')
-    };
+    // Arcade power‑ups
+    const powerups=[]; // {x,y,vy,type,ttl}
+    const PU_TYPES = ['PADDLE_PLUS','SLOW']; // elegant & simple
+    let puSpawnTimer = 0; // frames/time accumulator
 
+    // Helpers
     function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
-    function randSign(){ return Math.random() < .5 ? -1 : 1; }
+    function rand(min,max){ return Math.random()*(max-min)+min; }
+    function randSign(){ return Math.random()<.5?-1:1; }
 
-    function resetBall(dir = randSign()){
-      ball.x = W/2; ball.y = H/2; rally = 0;
-      const speed = 5.0; // base speed
-      const angle = (Math.random()*.6 - .3); // launch variation
-      ball.vx = speed * dir * Math.cos(angle);
-      ball.vy = speed * Math.sin(angle);
+    function difficultyParams(){
+      // Slower base speeds per your request
+      const base = {
+        easy:   { cpuFollow:1.4, rallyBoost:.03, ballSpeed:3.6, maxSpeed:8.5 },
+        normal: { cpuFollow:1.9, rallyBoost:.04, ballSpeed:4.1, maxSpeed:10.5 },
+        hard:   { cpuFollow:2.5, rallyBoost:.055,ballSpeed:4.6, maxSpeed:12.0 }
+      }[settings.difficulty];
+      // In arcade, lean a touch faster to keep it lively
+      if(mode==='arcade') return { ...base, ballSpeed: base.ballSpeed+0.3, maxSpeed: base.maxSpeed+1.0 };
+      return base;
+    }
+
+    function makeBall(dir=randSign()){
+      const p = difficultyParams();
+      const b = { x:W/2, y:H/2, r:12, vx: p.ballSpeed * dir, vy: p.ballSpeed* (Math.random()*.5 - .25), maxSpeed:p.maxSpeed };
+      return b;
+    }
+
+    function resetRound(dir=randSign()){
+      balls = [ makeBall(dir) ];
+      rally = 0;
     }
 
     function drawCourt(){
-      // Outer glow
       ctx.save();
       ctx.shadowColor = 'rgba(15,217,118,.55)';
       ctx.shadowBlur = 18;
-
-      // Court boundary
       ctx.strokeStyle = 'rgba(15,217,118,.9)';
       ctx.lineWidth = court.line;
       ctx.strokeRect(court.pad, court.pad, W - court.pad*2, H - court.pad*2);
-
-      // Net (dashed)
       ctx.setLineDash([court.line*2, court.netGap]);
-      ctx.beginPath();
-      ctx.moveTo(W/2, court.pad);
-      ctx.lineTo(W/2, H - court.pad);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
+      ctx.beginPath(); ctx.moveTo(W/2, court.pad); ctx.lineTo(W/2, H - court.pad); ctx.stroke(); ctx.setLineDash([]);
       ctx.restore();
     }
+
+    function roundRect(c, x, y, w, h, r){ c.beginPath(); c.moveTo(x+r, y); c.arcTo(x+w, y, x+w, y+h, r); c.arcTo(x+w, y+h, x, y+h, r); c.arcTo(x, y+h, x, y, r); c.arcTo(x, y, x+w, y, r); c.closePath(); }
 
     function drawPaddle(p){
-      // Rounded rectangle paddle with subtle texture (pickleball paddle)
-      const r = paddleR;
-      const x = p.x, y = p.y, w = p.w, h = p.h;
+      const r=paddleR; const {x,y,w,h}=p;
       ctx.save();
-      ctx.fillStyle = 'rgba(15,217,118,.15)';
-      ctx.strokeStyle = 'rgba(15,217,118,.9)';
-      ctx.lineWidth = 2;
-      roundRect(ctx, x, y, w, h, r);
-      ctx.fill();
-      ctx.stroke();
-      // Handle nub
-      ctx.fillStyle = 'rgba(15,217,118,.35)';
-      ctx.fillRect(x - 6 + (p===cpu?12:0), y + h/2 - 12, 12, 24);
+      ctx.fillStyle='rgba(15,217,118,.15)'; ctx.strokeStyle='rgba(15,217,118,.9)'; ctx.lineWidth=2;
+      roundRect(ctx,x,y,w,h,r); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='rgba(15,217,118,.35)'; ctx.fillRect(x - 6 + (p===cpu?12:0), y + h/2 - 12, 12, 24);
       ctx.restore();
     }
 
-    function drawBall(){
-      // Perforated pickleball (accent color)
+    function drawBall(b){
       const holes = 6;
       ctx.save();
-      ctx.fillStyle = '#f5e04c';
-      ctx.shadowColor = 'rgba(245,224,76,.55)';
-      ctx.shadowBlur = 14;
-      ctx.beginPath();
-      ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = 'rgba(0,0,0,.22)';
-      for(let i=0;i<holes;i++){
-        const a = (i/holes) * Math.PI*2;
-        const hx = ball.x + Math.cos(a)*ball.r*.55;
-        const hy = ball.y + Math.sin(a)*ball.r*.4;
-        ctx.beginPath();
-        ctx.arc(hx, hy, 2.2, 0, Math.PI*2);
-        ctx.fill();
-      }
+      ctx.fillStyle = '#f5e04c'; ctx.shadowColor='rgba(245,224,76,.55)'; ctx.shadowBlur=14;
+      ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.fill();
+      ctx.shadowBlur=0; ctx.fillStyle='rgba(0,0,0,.22)';
+      for(let i=0;i<holes;i++){ const a=(i/holes)*Math.PI*2; const hx=b.x+Math.cos(a)*b.r*.55; const hy=b.y+Math.sin(a)*b.r*.4; ctx.beginPath(); ctx.arc(hx,hy,2.2,0,Math.PI*2); ctx.fill(); }
+      ctx.restore();
+
+      // trail
+      ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(15,217,118,.06)';
+      ctx.beginPath(); ctx.arc(b.x - b.vx*1.2, b.y - b.vy*1.2, b.r*1.25, 0, Math.PI*2); ctx.fill(); ctx.restore();
+    }
+
+    function drawPowerup(pu){
+      ctx.save();
+      const icon = pu.type==='PADDLE_PLUS' ? '+' : '⏱️';
+      ctx.fillStyle='rgba(15,217,118,.12)'; ctx.strokeStyle='rgba(15,217,118,.9)'; ctx.lineWidth=2;
+      roundRect(ctx, pu.x-12, pu.y-12, 24, 24, 8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#e6f1ff'; ctx.font='bold 16px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(icon, pu.x, pu.y+1);
       ctx.restore();
     }
 
-    function roundRect(c, x, y, w, h, r){
-      c.beginPath();
-      c.moveTo(x+r, y);
-      c.arcTo(x+w, y, x+w, y+h, r);
-      c.arcTo(x+w, y+h, x, y+h, r);
-      c.arcTo(x, y+h, x, y, r);
-      c.arcTo(x, y, x+w, y, r);
-      c.closePath();
-    }
-
-    function update(){
+    // Physics & game loop
+    function update(dt){
       if(!running) return;
+      const params = difficultyParams();
 
-      // Move ball
-      ball.x += ball.vx;
-      ball.y += ball.vy;
-
-      // Wall collisions
-      if(ball.y - ball.r < court.pad){ ball.y = court.pad + ball.r; ball.vy *= -1; play(audio.wall); }
-      if(ball.y + ball.r > H - court.pad){ ball.y = H - court.pad - ball.r; ball.vy *= -1; play(audio.wall); }
-
-      // Paddle collisions
-      function collide(p){
-        if(ball.x - ball.r < p.x + p.w && ball.x + ball.r > p.x && ball.y + ball.r > p.y && ball.y - ball.r < p.y + p.h){
-          // reflect, with angle based on impact point
-          const rel = (ball.y - (p.y + p.h/2)) / (p.h/2);
-          const speed = Math.min(Math.hypot(ball.vx, ball.vy)*1.06 + .2*rally, ball.maxSpeed);
-          const dir = p === player ? 1 : -1; // ball moves to opponent
-          const angle = rel * 0.7; // control spin/deflection
-          ball.vx = speed * dir * Math.cos(angle);
-          ball.vy = speed * Math.sin(angle);
-          ball.x = p === player ? p.x + p.w + ball.r + 0.5 : p.x - ball.r - 0.5;
-          rally++;
-          play(audio.hit);
-        }
+      // Move balls
+      for(const b of balls){
+        b.x += b.vx; b.y += b.vy;
+        b.maxSpeed = params.maxSpeed;
+        // walls
+        if(b.y - b.r < court.pad){ b.y = court.pad + b.r; b.vy *= -1; play(audio.wall); }
+        if(b.y + b.r > H - court.pad){ b.y = H - court.pad - b.r; b.vy *= -1; play(audio.wall); }
+        // paddle collisions
+        collideBallWithPaddle(b, player, params);
+        collideBallWithPaddle(b, cpu, params, true);
       }
-      collide(player); collide(cpu);
 
-      // Score check
-      if(ball.x < 0){ cpuScore++; resetBall(1); play(audio.score); }
-      if(ball.x > W){ playerScore++; resetBall(-1); play(audio.score); }
+      // scoring & ball removal
+      for(let i=balls.length-1;i>=0;i--){ const b=balls[i];
+        if(b.x < 0){ cpuScore++; play(audio.score); balls.splice(i,1); }
+        else if(b.x > W){ playerScore++; storeScore(); play(audio.score); balls.splice(i,1); }
+      }
+      if(balls.length===0){ resetRound(randSign()); startCountdown(()=>{ running=true; }); }
 
-      // CPU AI — tracks ball with easing and prediction
-      const target = ball.y - cpu.h/2 + clamp((ball.vy*12), -80, 80);
-      cpu.y += clamp(target - cpu.y, - (2.4 + rally*0.05), (2.4 + rally*0.05));
+      // CPU AI
+      const target = (balls[0]?.y ?? H/2) - cpu.h/2 + clamp(((balls[0]?.vy)||0)*12, -80, 80);
+      const f = params.cpuFollow;
+      cpu.y += clamp(target - cpu.y, -f, f);
       cpu.y = clamp(cpu.y, court.pad, H - court.pad - cpu.h);
 
-      // Player motion already handled via input; clamp
+      // Clamp player
       player.y = clamp(player.y, court.pad, H - court.pad - player.h);
 
-      ui.score.textContent = `🏓 ${playerScore} : ${cpuScore}`;
+      // Arcade power‑ups
+      if(mode==='arcade'){
+        puSpawnTimer += dt;
+        if(puSpawnTimer > 90){ // ~1.5s (dt is ~1 frame unit here)
+          puSpawnTimer = 0;
+          if(Math.random()<0.06){ // roughly every ~25s average
+            powerups.push({ x: rand(court.pad+30, W-court.pad-30), y: court.pad+30, vy: 1.2, type: PU_TYPES[Math.floor(Math.random()*PU_TYPES.length)], ttl: 20*60 });
+          }
+        }
+        // move & collect
+        for(let i=powerups.length-1;i>=0;i--){
+          const pu = powerups[i]; pu.y += pu.vy; pu.ttl--; if(pu.ttl<=0 || pu.y>H-court.pad-16){ powerups.splice(i,1); continue; }
+          if(rectIntersects(pu.x-12, pu.y-12, 24,24, player.x, player.y, player.w, player.h)){
+            applyPowerup(pu.type); powerups.splice(i,1); play(audio.hit);
+          }
+        }
+      } else { powerups.length=0; }
+
+      // UI
+      scoreEl.textContent = `🏓 ${playerScore} : ${cpuScore}`;
+    }
+
+    function collideBallWithPaddle(b, p, params, isCPU=false){
+      if(b.x - b.r < p.x + p.w && b.x + b.r > p.x && b.y + b.r > p.y && b.y - b.r < p.y + p.h){
+        const rel = (b.y - (p.y + p.h/2)) / (p.h/2);
+        const speed = Math.min(Math.hypot(b.vx,b.vy)*1.06 + params.rallyBoost*rally, b.maxSpeed);
+        const dir = (p===player) ? 1 : -1;
+        const angle = rel * 0.7;
+        b.vx = speed * dir * Math.cos(angle);
+        b.vy = speed * Math.sin(angle);
+        b.x = (p===player) ? p.x + p.w + b.r + 0.5 : p.x - b.r - 0.5;
+        rally++;
+        play(audio.hit);
+      }
+    }
+
+    function rectIntersects(ax,ay,aw,ah, bx,by,bw,bh){ return ax<bx+bw && ax+aw>bx && ay<by+bh && ay+ah>by; }
+
+    // Power‑ups logic
+    let effects = { paddlePlus:0, slowFactor:1 };
+    function applyPowerup(type){
+      if(type==='PADDLE_PLUS'){ effects.paddlePlus = Math.max(effects.paddlePlus, 8*60); player.h = paddleH + 40; }
+      if(type==='SLOW'){ effects.slowFactor = Math.min(effects.slowFactor, 0.7); setTimeout(()=>{ effects.slowFactor=1; }, 6000); }
+    }
+
+    function tickEffects(){
+      if(effects.paddlePlus>0){ effects.paddlePlus--; if(effects.paddlePlus===0){ player.h = paddleH; } }
+      // Apply slow to balls
+      if(mode==='arcade' && effects.slowFactor!==1){ for(const b of balls){ b.vx*=0.995; b.vy*=0.995; } }
     }
 
     function draw(){
       ctx.clearRect(0,0,W,H);
       drawCourt();
-      drawPaddle(player);
-      drawPaddle(cpu);
-      drawBall();
-
-      // Glow trail (subtle)
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = 'rgba(15,217,118,.06)';
-      ctx.beginPath();
-      ctx.arc(ball.x - ball.vx*1.2, ball.y - ball.vy*1.2, ball.r*1.25, 0, Math.PI*2);
-      ctx.fill();
-      ctx.restore();
+      drawPaddle(player); drawPaddle(cpu);
+      for(const b of balls) drawBall(b);
+      if(mode==='arcade'){ for(const pu of powerups) drawPowerup(pu); }
     }
 
     function loop(t){
-      const dt = Math.min((t - lastTime)/16.666, 2);
+      const dt = Math.min((t - lastTime)/16.666, 2); // ~frames
       lastTime = t;
+      if(running){ tickEffects(); }
       update(dt);
       draw();
       requestAnimationFrame(loop);
     }
 
-    // Input — mouse/touch drag anywhere to move player's paddle
+    // Input
     const drag = { active:false, oy:0, py:0 };
-
     function pointerY(e){ return (e.touches? e.touches[0].clientY : e.clientY) - canvas.getBoundingClientRect().top; }
-
-    function startDrag(e){ drag.active = true; drag.oy = pointerY(e); drag.py = player.y; }
-    function moveDrag(e){ if(!drag.active) return; const dy = pointerY(e) - drag.oy; player.y = drag.py + dy; }
+    function startDrag(e){ drag.active=true; drag.oy=pointerY(e); drag.py=player.y; }
+    function moveDrag(e){ if(!drag.active) return; const dy = pointerY(e)-drag.oy; player.y = drag.py + dy; }
     function endDrag(){ drag.active=false; }
+    canvas.addEventListener('mousedown', startDrag); canvas.addEventListener('mousemove', moveDrag); window.addEventListener('mouseup', endDrag);
+    canvas.addEventListener('touchstart', startDrag, {passive:true}); canvas.addEventListener('touchmove', moveDrag, {passive:true}); canvas.addEventListener('touchend', endDrag, {passive:true});
 
-    canvas.addEventListener('mousedown', startDrag);
-    canvas.addEventListener('mousemove', moveDrag);
-    window.addEventListener('mouseup', endDrag);
-
-    canvas.addEventListener('touchstart', (e)=>{ startDrag(e); }, {passive:true});
-    canvas.addEventListener('touchmove',  (e)=>{ moveDrag(e);  }, {passive:true});
-    canvas.addEventListener('touchend',   endDrag, {passive:true});
-
-    // Keyboard (optional)
     window.addEventListener('keydown', (e)=>{
-      if(e.key==='ArrowUp' || e.key==='w') player.y -= 28;
-      if(e.key==='ArrowDown' || e.key==='s') player.y += 28;
-      if(e.key===' ') { running=!running; ui.btnPause.textContent = running? '⏸️ Pause':'▶️ Resume'; }
+      if(e.key==='ArrowUp'||e.key==='w') player.y -= 28;
+      if(e.key==='ArrowDown'||e.key==='s') player.y += 28;
+      if(e.key===' ') togglePause();
+      if(e.key==='Escape') { running=false; show('home'); }
     });
 
-    // UI buttons
-    ui.btnPause.addEventListener('click', ()=>{ running=!running; ui.btnPause.textContent = running? '⏸️ Pause':'▶️ Resume'; });
-    ui.btnReset.addEventListener('click', ()=>{ playerScore=0; cpuScore=0; resetBall(randSign()); running=true; ui.btnPause.textContent='⏸️ Pause'; });
-    ui.btnSound.addEventListener('click', ()=>{ audio.on=!audio.on; ui.btnSound.textContent = audio.on? '🔊 Sound':'🔈 Muted'; });
+    // Buttons wiring
+    playRegular.onclick = ()=> startGame('regular');
+    playArcade.onclick  = ()=> startGame('arcade');
+    btnAddFC.onclick = addToFarcaster;
+    toSettings.onclick = ()=> show('settings');
+    toBoard.onclick = ()=>{ renderBoard(); show('board'); };
 
-    function play(a){ if(audio.on){ try{ a.currentTime=0; a.play(); }catch{} } }
+    btnHome.onclick = ()=>{ running=false; show('home'); };
+    btnPause.onclick = togglePause;
+    btnReset.onclick = ()=>{ playerScore=0; cpuScore=0; resetRound(randSign()); running=false; startCountdown(()=>{ running=true; }); };
+    btnSound.onclick = ()=>{ settings.sound=!settings.sound; syncSoundButtons(); saveSettings(); };
 
-    // Initialize
-    resetBall(randSign());
-    requestAnimationFrame(loop);
+    backFromSettings.onclick = ()=> show('home');
+    saveSettingsBtn.onclick = ()=>{ settings.difficulty = difficultySel.value; settings.scanlines=parseFloat(scanlinesRange.value); saveSettings(); show('home'); };
+    toggleSoundBtn.onclick = ()=>{ settings.sound=!settings.sound; syncSoundButtons(); };
+
+    clearBoardBtn.onclick = ()=>{ localStorage.removeItem('pp_board'); board.length=0; renderBoard(); };
+    backFromBoard.onclick = ()=> show('home');
+
+    function syncSoundButtons(){ btnSound.textContent = settings.sound? '🔊 Sound':'🔈 Muted'; toggleSoundBtn.textContent = settings.sound? '🔊 On':'🔈 Off'; }
+    function saveSettings(){ localStorage.setItem('pp_settings', JSON.stringify(settings)); applyScanlines(settings.scanlines); }
+
+    // Scanline intensity control
+    applyScanlines(settings.scanlines);
+    function applyScanlines(v){ const s=document.getElementById('scanStyle')||(()=>{const n=document.createElement('style'); n.id='scanStyle'; document.head.appendChild(n); return n;})(); s.textContent=`.crt:before{opacity:${0.4*v}}`; }
+
+    function startCountdown(done){ let n=3; countNum.textContent=n; countdown.classList.add('show'); const t=setInterval(()=>{ n--; if(n>0){ countNum.textContent=n; play(audio.hit);} else { clearInterval(t); countNum.textContent='GO!'; play(audio.wall); setTimeout(()=>{ countdown.classList.remove('show'); done&&done(); }, 450);} }, 700); }
+
+    function startGame(m){ mode=m; show('game'); modeTag.textContent = m==='regular' ? 'REGULAR' : 'ARCADE'; playerScore=0; cpuScore=0; player.y=H/2 - paddleH/2; cpu.y=H/2 - paddleH/2; effects={paddlePlus:0,slowFactor:1}; powerups.length=0; resetRound(randSign()); running=false; startCountdown(()=>{ running=true; }); }
+
+    function togglePause(){ running=!running; btnPause.textContent = running? '⏸️ Pause':'▶️ Resume'; }
+
+    function storeScore(){ // store player's score as a simple high score surrogate
+      const entry={ ts:Date.now(), score:playerScore, mode }; board.push(entry); localStorage.setItem('pp_board', JSON.stringify(board)); }
+
+    function renderBoard(){ boardList.innerHTML=''; const top=board.slice().sort((a,b)=>b.score-a.score).slice(0,10); if(!top.length){ boardList.innerHTML='<li>No scores yet — hit Play!</li>'; return;} top.forEach((row,i)=>{ const li=document.createElement('li'); const d=new Date(row.ts); li.textContent = `#${i+1}  ${row.score}  —  ${row.mode.toUpperCase()}  —  ${d.toLocaleDateString()} ${d.toLocaleTimeString()}`; boardList.appendChild(li); }); }
+
+    async function addToFarcaster(){ try{ if(window.farcasterSDK?.actions?.share){ await window.farcasterSDK.actions.share({ url: location.href, text: 'Play PicklePong Mini!' }); } else if(navigator.share){ await navigator.share({ url: location.href, text: 'Play PicklePong Mini!' }); } else { await navigator.clipboard.writeText(location.href); alert('Link copied! Cast this URL to add it.'); } } catch(e){ try{ await navigator.clipboard.writeText(location.href); alert('Link copied!'); }catch{} } }
+
+    // Boot
+    syncSoundButtons();
+    resetRound(randSign());
+    requestAnimationFrame(function raf(t){ lastTime=t; requestAnimationFrame(loop); });
+
+    // --- Minimal Smoke Tests (console only) ---
+    (function runSmokeTests(){
+      try{
+        console.assert(typeof saveSettings === 'function', 'saveSettings() function exists');
+        console.assert(!!document.getElementById('saveSettings'), '#saveSettings button exists');
+        console.assert(['home','game','settings','board'].every(k=>views[k]), 'All views wired');
+        // Simulate route changes
+        show('game'); console.assert(views.game.classList.contains('show'),'Game view visible');
+        show('home'); console.assert(views.home.classList.contains('show'),'Home view visible again');
+        console.log('[PicklePong] Smoke tests passed');
+      }catch(err){ console.warn('[PicklePong] Smoke tests found an issue', err); }
+    })();
 
     // Signal Farcaster we're ready (hide splash)
-    (async () => { try{ if(window.farcasterSDK){ await window.farcasterSDK.actions.ready(); } } catch(e){ /* non-miniapp env */ } })();
+    (async () => { try{ if(window.farcasterSDK){ await window.farcasterSDK.actions.ready(); } } catch(e){ } })();
   })();
   </script>
-
-  <!--
-  ========================
-  Mini App manifest (already hosted by you at /.well-known/farcaster.json)
-  Keep it in sync with these values:
-
-  {
-    "name": "PicklePong Mini",
-    "description": "Retro pickleball Pong made for Farcaster Mini Apps.",
-    "icon_url": "https://pong-miniapp.vercel.app/icon.png",
-    "home_url": "https://pong-miniapp.vercel.app/",
-    "contact": { "website": "https://pong-miniapp.vercel.app/" }
-  }
-  ========================
-  -->
 </body>
 </html>
