@@ -9,35 +9,52 @@
     :root{ --court:#0fd976; --accent:#f5e04c; --text:#e6f1ff; }
     html,body{height:100%;margin:0;background:#070a10;color:var(--text);font-family:system-ui,sans-serif;}
     .view{display:none}
-    .homeWrap.view.show, .gameWrap.view.show{display:flex}
-    .homeWrap{min-height:100vh;flex-direction:column;align-items:center;justify-content:center}
+    .homeWrap.view.show, .gameWrap.view.show, .page.view.show{display:flex}
+    .homeWrap{min-height:100vh;flex-direction:column;align-items:center;justify-content:center;gap:14px}
     .gameWrap{min-height:100vh;flex-direction:column}
+    .page{min-height:100vh;flex-direction:column;align-items:center}
+
     .btn{border:1px solid var(--accent);background:rgba(245,224,76,.08);color:var(--text);padding:.65rem 1rem;border-radius:1rem;font-weight:800;cursor:pointer;}
     .btn.primary{background:rgba(245,224,76,.25)}
-    .btn.ghost{border-color:var(--court);}
+    .btn.ghost{border-color:var(--court);} .btn.chip{padding:.45rem .7rem;border-radius:.8rem}
+    .row{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center}
+
     .crt{flex:1;display:grid;place-items:center;position:relative}
     canvas{background:#0b0f15;border:1px solid var(--court);border-radius:22px;image-rendering:pixelated}
     .countdown{position:absolute;inset:0;display:none;place-items:center;background:rgba(0,0,0,.55)}
     .countdown.show{display:grid}
     .countNum{font-size:4rem;font-weight:900;color:var(--accent)}
+
+    .card{width:min(92vw,720px);border:1px solid rgba(15,217,118,.35);border-radius:18px;padding:16px}
+    .list{margin:0;padding-left:20px}
   </style>
 </head>
 <body>
+  <!-- HOME PAGE -->
   <div id="homePage" class="homeWrap view show">
-    <main>
+    <main style="text-align:center">
       <h1>🏓 PicklePong</h1>
-      <button id="playRegular" class="btn primary">▶️ Play Regular</button>
-      <button id="playArcade" class="btn ghost">⚡ Play Arcade</button>
+      <div class="row" style="margin:.75rem 0 0">
+        <button id="playRegular" class="btn primary">▶️ Play Regular</button>
+        <button id="playArcade" class="btn ghost">⚡ Play Arcade</button>
+      </div>
+      <div class="row" style="margin-top:.5rem">
+        <button id="btnShare" class="btn">🔗 Share</button>
+        <button id="btnSettings" class="btn">⚙️ Settings</button>
+        <button id="btnBoard" class="btn">🏆 Leaderboard</button>
+      </div>
     </main>
   </div>
 
+  <!-- GAME PAGE -->
   <div id="gamePage" class="gameWrap view">
-    <header style="padding:1rem;display:flex;gap:1rem;align-items:center">
-      <button id="btnHome" class="btn">🏠 Home</button>
-      <button id="btnPause" class="btn">⏸️ Pause</button>
-      <button id="btnReset" class="btn">🔄 Reset</button>
-      <span id="modeTag" style="margin-left:auto"></span>
-      <span id="score"></span>
+    <header style="padding:1rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+      <button id="btnHome" class="btn chip">🏠 Home</button>
+      <button id="btnPause" class="btn chip">⏸️ Pause</button>
+      <button id="btnReset" class="btn chip">🔄 Reset</button>
+      <button id="btnTheme" class="btn chip" title="Toggle court theme">🎨 Theme: Blue</button>
+      <span id="modeTag" class="btn chip" style="pointer-events:none"></span>
+      <span id="score" style="margin-left:auto;min-width:72px;text-align:center"></span>
     </header>
     <div class="crt">
       <canvas id="game" width="480" height="720"></canvas>
@@ -45,145 +62,170 @@
     </div>
   </div>
 
+  <!-- SETTINGS PAGE -->
+  <div id="settingsPage" class="page view">
+    <header style="padding:1rem;width:100%;display:flex;justify-content:space-between;box-sizing:border-box">
+      <strong>Settings</strong>
+      <button id="backFromSettings" class="btn chip">⬅️ Back</button>
+    </header>
+    <main class="card">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <label><b>Sound</b></label>
+        <button id="toggleSound" class="btn chip">🔊 On</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <label><b>Court Theme</b></label>
+        <button id="setBlue" class="btn chip">Blue</button>
+        <button id="setRed" class="btn chip">Red</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- LEADERBOARD PAGE -->
+  <div id="boardPage" class="page view">
+    <header style="padding:1rem;width:100%;display:flex;justify-content:space-between;box-sizing:border-box">
+      <strong>Leaderboard</strong>
+      <div class="row">
+        <button id="clearBoard" class="btn chip">🧹 Clear</button>
+        <button id="backFromBoard" class="btn chip">⬅️ Back</button>
+      </div>
+    </header>
+    <main class="card">
+      <ol id="boardList" class="list"></ol>
+    </main>
+  </div>
+
   <script>
   (function(){
-    const views={home:document.getElementById('homePage'),game:document.getElementById('gamePage')};
+    const views={home:document.getElementById('homePage'),game:document.getElementById('gamePage'),settings:document.getElementById('settingsPage'),board:document.getElementById('boardPage')};
     function show(id){Object.values(views).forEach(v=>v.classList.remove('show'));views[id].classList.add('show');}
 
+    // --- DOM ---
     const canvas=document.getElementById('game');
     const ctx=canvas.getContext('2d');
     const W=canvas.width,H=canvas.height;
     const scoreEl=document.getElementById('score');
     const modeTag=document.getElementById('modeTag');
+    const btnTheme=document.getElementById('btnTheme');
 
+    // Home buttons
+    document.getElementById('playRegular').onclick=()=>{mode='regular';modeTag.textContent='REGULAR';startGame();};
+    document.getElementById('playArcade').onclick =()=>{mode='arcade'; modeTag.textContent='ARCADE'; startGame();};
+    document.getElementById('btnShare').onclick = async ()=>{
+      try{ if(navigator.share){ await navigator.share({url:location.href,text:'Play PicklePong Mini!'}); }
+            else { await navigator.clipboard.writeText(location.href); alert('Link copied!'); } }
+      catch(e){ try{ await navigator.clipboard.writeText(location.href); alert('Link copied!'); }catch{} }
+    };
+    document.getElementById('btnSettings').onclick=()=>show('settings');
+    document.getElementById('btnBoard').onclick=()=>{ renderBoard(); show('board'); };
+
+    // Game header buttons
+    document.getElementById('btnHome').onclick=()=>{running=false;show('home');};
+    document.getElementById('btnPause').onclick=()=>{if(!counting){running=!running;}};
+    document.getElementById('btnReset').onclick=()=>{if(!counting){playerScore=cpuScore=0;resetBall();running=false;startCountdown(()=>{running=true;});}};
+    btnTheme.onclick=()=>{ themeName = (themeName==='blue')?'red':'blue'; btnTheme.textContent='🎨 Theme: '+(themeName==='blue'?'Blue':'Red'); saveSettings(); };
+
+    // Settings page controls
+    document.getElementById('backFromSettings').onclick=()=>show('home');
+    document.getElementById('toggleSound').onclick=()=>{ settings.sound=!settings.sound; syncSettingsUI(); saveSettings(); };
+    document.getElementById('setBlue').onclick=()=>{ themeName='blue'; btnTheme.textContent='🎨 Theme: Blue'; syncSettingsUI(); saveSettings(); };
+    document.getElementById('setRed').onclick =()=>{ themeName='red';  btnTheme.textContent='🎨 Theme: Red';  syncSettingsUI(); saveSettings(); };
+
+    // Board page controls
+    document.getElementById('clearBoard').onclick=()=>{ localStorage.removeItem('pp_board'); board.length=0; renderBoard(); };
+    document.getElementById('backFromBoard').onclick=()=>show('home');
+
+    // --- Settings persistence ---
+    const saved = JSON.parse(localStorage.getItem('pp_settings')||'{}');
+    const settings = { sound: saved.sound!==undefined ? saved.sound : true };
+    let themeName = saved.themeName || 'blue';
+    function saveSettings(){ localStorage.setItem('pp_settings', JSON.stringify({ ...settings, themeName })); }
+    function syncSettingsUI(){ document.getElementById('toggleSound').textContent = settings.sound? '🔊 On':'🔈 Off'; }
+    syncSettingsUI(); btnTheme.textContent='🎨 Theme: '+(themeName==='blue'?'Blue':'Red');
+
+    // --- Leaderboard ---
+    const board = JSON.parse(localStorage.getItem('pp_board')||'[]');
+    function storeScore(){ board.push({ ts:Date.now(), score:playerScore, mode }); localStorage.setItem('pp_board', JSON.stringify(board)); }
+    function renderBoard(){ const list=document.getElementById('boardList'); list.innerHTML=''; const top=board.slice().sort((a,b)=>b.score-a.score).slice(0,10); if(!top.length){ list.innerHTML='<li>No scores yet — play a round!</li>'; return;} top.forEach((r,i)=>{ const li=document.createElement('li'); const d=new Date(r.ts); li.textContent=`#${i+1}  ${r.score} — ${r.mode.toUpperCase()} — ${d.toLocaleDateString()} ${d.toLocaleTimeString()}`; list.appendChild(li); }); }
+
+    // --- Gameplay state ---
     const PADDLE_W=14,PADDLE_H0=100;
     const player={x:20,y:H/2-PADDLE_H0/2,w:PADDLE_W,h:PADDLE_H0};
     const cpu={x:W-20-PADDLE_W,y:H/2-PADDLE_H0/2,w:PADDLE_W,h:PADDLE_H0};
 
-    // Flags and state
-    let running=false, counting=false, mode='regular';
-    let playerScore=0, cpuScore=0;
+    let running=false,counting=false,mode='regular';
+    let playerScore=0,cpuScore=0;
 
-    // Ball speed: slow base, gradual ramp, capped max
-    const SPEED_BASE=2.0, SPEED_STEP=1.05, SPEED_MAX=6.0;
+    // Ball speed profile
+    const SPEED_BASE=2.0,SPEED_STEP=1.05,SPEED_MAX=6.0;
     let speed=SPEED_BASE;
     const ball={x:W/2,y:H/2,r:10,vx:SPEED_BASE*(Math.random()<.5?-1:1),vy:SPEED_BASE*0.4};
 
     function resetBall(dir=(Math.random()<.5?-1:1)){
-      speed=SPEED_BASE;
-      ball.x=W/2; ball.y=H/2;
-      const ang=(Math.random()*.5-.25); // gentle spread
-      ball.vx=speed*dir*Math.cos(ang);
-      ball.vy=speed*Math.sin(ang);
+      speed=SPEED_BASE; ball.x=W/2; ball.y=H/2; const ang=(Math.random()*.5-.25); ball.vx=speed*dir*Math.cos(ang); ball.vy=speed*Math.sin(ang);
     }
 
-    function paddleBounce(p){
-      const rel=(ball.y-(p.y+p.h/2))/(p.h/2); // -1..1
-      speed=Math.min(speed*SPEED_STEP,SPEED_MAX);
-      const dir=(p===player?1:-1);
-      const ang=rel*0.7;
-      ball.vx=speed*dir*Math.cos(ang);
-      ball.vy=speed*Math.sin(ang);
-      ball.x=(p===player)?p.x+p.w+ball.r+0.5:p.x-ball.r-0.5;
+    function paddleBounce(p){ const rel=(ball.y-(p.y+p.h/2))/(p.h/2); speed=Math.min(speed*SPEED_STEP,SPEED_MAX); const dir=(p===player?1:-1); const ang=rel*0.7; ball.vx=speed*dir*Math.cos(ang); ball.vy=speed*Math.sin(ang); ball.x=(p===player)?p.x+p.w+ball.r+0.5:p.x-ball.r-0.5; }
+
+    // Theme colors (Blue/Red)
+    function theme(){
+      if(themeName==='red') return { line:'rgba(255,107,107,.95)', fill:'rgba(255,107,107,.18)', border:'#ff6b6b' };
+      return { line:'rgba(77,178,255,.95)', fill:'rgba(77,178,255,.18)', border:'#4db2ff' };
     }
 
     function update(){
-      if(!running||counting) return; // freeze during countdown
-
-      // Ball motion
-      ball.x+=ball.vx; ball.y+=ball.vy;
-
-      // Walls
-      if(ball.y-ball.r<14){ ball.y=14+ball.r; ball.vy*=-1; }
-      if(ball.y+ball.r>H-14){ ball.y=H-14-ball.r; ball.vy*=-1; }
-
-      // Paddles
-      if(ball.x-ball.r<player.x+player.w && ball.y>player.y && ball.y<player.y+player.h){ paddleBounce(player); }
-      if(ball.x+ball.r>cpu.x && ball.y>cpu.y && ball.y<cpu.y+cpu.h){ paddleBounce(cpu); }
-
-      // Scoring
-      if(ball.x<0){ cpuScore++; resetBall(1); startCountdown(()=>{ running=true; }); }
-      if(ball.x>W){ playerScore++; resetBall(-1); startCountdown(()=>{ running=true; }); }
-
-      // CPU AI (eases to ball)
+      if(!running||counting) return;
+      ball.x+=ball.vx;ball.y+=ball.vy;
+      // walls
+      if(ball.y-ball.r<14){ball.y=14+ball.r;ball.vy*=-1;}
+      if(ball.y+ball.r>H-14){ball.y=H-14-ball.r;ball.vy*=-1;}
+      // paddles
+      if(ball.x-ball.r<player.x+player.w && ball.y>player.y && ball.y<player.y+player.h){paddleBounce(player);} 
+      if(ball.x+ball.r>cpu.x && ball.y>cpu.y && ball.y<cpu.y+cpu.h){paddleBounce(cpu);} 
+      // scoring
+      if(ball.x<0){cpuScore++;resetBall(1);startCountdown(()=>{running=true;});}
+      if(ball.x>W){playerScore++;storeScore();resetBall(-1);startCountdown(()=>{running=true;});}
+      // cpu AI
       const target=ball.y-cpu.h/2+Math.max(Math.min(ball.vy*10,60),-60);
-      cpu.y=Math.max(14,Math.min(H-14-cpu.h, cpu.y+(target-cpu.y)*0.06));
-
-      // Clamp player
-      player.y=Math.max(14,Math.min(H-14-player.h, player.y));
-
+      const f=1.5+(speed-SPEED_BASE)*0.2;
+      cpu.y=Math.max(14,Math.min(H-14-cpu.h,cpu.y+(target-cpu.y)*0.05*f));
+      // clamp player
+      player.y=Math.max(14,Math.min(H-14-player.h,player.y));
       // HUD
       scoreEl.textContent=`${playerScore}:${cpuScore}`;
+      // Canvas border matches theme
+      const th = theme(); canvas.style.borderColor = th.border;
     }
 
     function draw(){
+      const th=theme();
       ctx.clearRect(0,0,W,H);
-      // Court border
-      ctx.strokeStyle='rgba(15,217,118,.85)'; ctx.lineWidth=3;
-      ctx.strokeRect(14,14,W-28,H-28);
+      // Court border + center
+      ctx.strokeStyle=th.line; ctx.lineWidth=3; ctx.strokeRect(14,14,W-28,H-28);
+      ctx.setLineDash([8,10]); ctx.beginPath(); ctx.moveTo(W/2,14); ctx.lineTo(W/2,H-14); ctx.stroke(); ctx.setLineDash([]);
       // Paddles
-      ctx.fillStyle='rgba(15,217,118,.18)';
-      ctx.fillRect(player.x,player.y,player.w,player.h);
-      ctx.fillRect(cpu.x,cpu.y,cpu.w,cpu.h);
+      ctx.fillStyle=th.fill; ctx.fillRect(player.x,player.y,player.w,player.h); ctx.fillRect(cpu.x,cpu.y,cpu.w,cpu.h);
       // Ball
       ctx.fillStyle='#f5e04c'; ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2); ctx.fill();
     }
 
-    function loop(){ update(); draw(); requestAnimationFrame(loop); }
-    requestAnimationFrame(loop);
+    function loop(){update();draw();requestAnimationFrame(loop);} requestAnimationFrame(loop);
 
-    // Start flow
-    function startGame(){
-      show('game');
-      playerScore=cpuScore=0;
-      player.y=H/2-PADDLE_H0/2; cpu.y=H/2-PADDLE_H0/2;
-      resetBall();
-      running=false;                 // ensure stopped
-      startCountdown(()=>{ running=true; }); // unfreeze after countdown
-    }
+    function startGame(){ show('game'); playerScore=cpuScore=0; player.y=H/2-PADDLE_H0/2; cpu.y=H/2-PADDLE_H0/2; resetBall(); running=false; startCountdown(()=>{running=true;}); }
 
-    // 3–2–1 countdown with hard freeze
-    function startCountdown(done){
-      counting=true; running=false;  // hard stop during countdown
-      let n=3;
-      const cd=document.getElementById('countdown');
-      const num=document.getElementById('countNum');
-      cd.classList.add('show'); num.textContent=n;
-      const t=setInterval(()=>{
-        n--;
-        if(n>0){ num.textContent=n; }
-        else {
-          clearInterval(t);
-          num.textContent='GO!';
-          setTimeout(()=>{ cd.classList.remove('show'); counting=false; done&&done(); }, 500);
-        }
-      }, 700);
-    }
-
-    // Buttons
-    document.getElementById('playRegular').onclick=()=>{ mode='regular'; modeTag.textContent='REGULAR'; startGame(); };
-    document.getElementById('playArcade').onclick =()=>{ mode='arcade';  modeTag.textContent='ARCADE';  startGame(); };
-    document.getElementById('btnHome').onclick=()=>{ running=false; show('home'); };
-    document.getElementById('btnPause').onclick=()=>{ if(!counting){ running=!running; } };
-    document.getElementById('btnReset').onclick=()=>{ if(!counting){ playerScore=cpuScore=0; resetBall(); running=false; startCountdown(()=>{ running=true; }); } };
+    function startCountdown(done){ counting=true; running=false; let n=3; const cd=document.getElementById('countdown'); const num=document.getElementById('countNum'); cd.classList.add('show'); num.textContent=n; const t=setInterval(()=>{ n--; if(n>0){ num.textContent=n; } else { clearInterval(t); num.textContent='GO!'; setTimeout(()=>{ cd.classList.remove('show'); counting=false; done&&done(); }, 500); } }, 700); }
 
     // Drag control
-    function ptrY(e){ return (e.touches?e.touches[0].clientY:e.clientY)-canvas.getBoundingClientRect().top; }
-    let drag=false, oy=0, py=0;
-    canvas.addEventListener('mousedown',e=>{ drag=true; oy=ptrY(e); py=player.y; });
-    canvas.addEventListener('mousemove',e=>{ if(drag){ player.y=py+ptrY(e)-oy; } });
+    function ptrY(e){return(e.touches?e.touches[0].clientY:e.clientY)-canvas.getBoundingClientRect().top;} let drag=false,oy=0,py=0;
+    canvas.addEventListener('mousedown',e=>{drag=true;oy=ptrY(e);py=player.y;});
+    canvas.addEventListener('mousemove',e=>{if(drag){player.y=py+ptrY(e)-oy;}});
     window.addEventListener('mouseup',()=>drag=false);
-    canvas.addEventListener('touchstart',e=>{ drag=true; oy=ptrY(e); py=player.y; },{passive:true});
-    canvas.addEventListener('touchmove',e=>{ if(drag){ player.y=py+ptrY(e)-oy; } },{passive:true});
+    canvas.addEventListener('touchstart',e=>{drag=true;oy=ptrY(e);py=player.y;},{passive:true});
+    canvas.addEventListener('touchmove',e=>{if(drag){player.y=py+ptrY(e)-oy;}},{passive:true});
     canvas.addEventListener('touchend',()=>drag=false,{passive:true});
 
     // Keyboard
-    window.addEventListener('keydown',e=>{
-      if(e.key==='ArrowUp') player.y-=28;
-      if(e.key==='ArrowDown') player.y+=28;
-      if(e.key===' ') { if(!counting) running=!running; }
-      if(e.key==='Escape'){ running=false; show('home'); }
-    });
+    window.addEventListener('keydown',e=>{ if(e.key==='ArrowUp')player.y-=28; if(e.key==='ArrowDown')player.y+=28; if(e.key===' '&&!counting)running=!running; if(e.key==='Escape'){ running=false; show('home'); } });
   })();
   </script>
 </body>
